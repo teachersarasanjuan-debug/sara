@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-labelledby="title desc">
+<title id="title">Teacher Sara English Classes</title><desc id="desc">Logo for Teacher Sara English classes in San Juan, Alicante.</desc>
+<rect width="640" height="420" rx="72" fill="#fffdf7"/>
+<circle cx="320" cy="125" r="77" fill="#eaf6f0"/>
+<path d="M296 73c9-23 43-28 59-7 14 18 10 47-9 59-22 14-51 1-55-24-2-10 0-19 5-28Z" fill="#f3c6a7"/>
+<path d="M280 105c4-35 26-57 58-57 29 0 51 21 55 54-16-7-33-17-45-33-11 20-39 33-68 36Z" fill="#d9a34b"/>
+<circle cx="310" cy="112" r="4" fill="#102a43"/><circle cx="345" cy="112" r="4" fill="#102a43"/>
+<path d="M314 132c11 9 25 9 36 0" fill="none" stroke="#b96855" stroke-width="5" stroke-linecap="round"/>
+<path d="M253 201c28-27 104-27 133 0v33H253Z" fill="#176b57"/>
+<path d="M275 204c13 10 70 12 93 0v79H275Z" fill="#fff"/>
+<path d="M210 75c18-26 55-28 76-6-7 16-20 25-39 27-15 1-27-5-37-21Z" fill="#d8ece7"/>
+<path d="M412 75c-18-26-55-28-76-6 7 16 20 25 39 27 15 1 27-5 37-21Z" fill="#d8ece7"/>
+<path d="M300 277h42v21h-42z" fill="#ffd75e"/><path d="M290 296h62v13h-62z" fill="#23866d"/>
+<text x="320" y="350" text-anchor="middle" font-family="Georgia,serif" font-size="62" font-weight="700" fill="#102a43">Teacher Sara</text>
+<text x="320" y="382" text-anchor="middle" font-family="Arial,sans-serif" font-size="17" font-weight="700" letter-spacing="4" fill="#23866d">ENGLISH CLASSES · SAN JUAN</text>
+</svg>
