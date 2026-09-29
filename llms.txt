@@ -1,44 +1,45 @@
 # Teacher Sara
 
-Teacher Sara is a British English teacher based in Sant Joan d'Alacant (San Juan de Alicante), Alicante, Spain.
+Teacher Sara es una profesora británica de inglés con más de 15 años de experiencia enseñando en España. Actualmente ofrece clases en San Juan de Alicante (Sant Joan d'Alacant) y atiende también a familias de Mutxamel (Muchamiel).
 
-## About
+## Datos principales
 - Profesora británica de inglés
-- Más de 15 años de experiencia enseñando inglés en España
-- Experiencia enseñando en colegios de San Sebastián, Pamplona, Madrid y Alicante
-- Zona actual de clases: San Juan de Alicante y Mutxamel
+- Más de 15 años de experiencia enseñando en España
+- Experiencia en colegios de San Sebastián, Pamplona, Madrid y Alicante
+- Clases actuales: San Juan de Alicante
+- Familias atendidas también desde Mutxamel (Muchamiel)
+- Dirección exacta del espacio de clases: no se publica; se facilita directamente a las familias
 
-## Services
-- English classes for children aged 6–8, 9–11 and 12–14
-- Clases en grupos pequeños: máximo 4 alumnos
-- Precio de grupo: 12,50 € por alumno y clase cuando el grupo está completo con 4 alumnos
-- Clases individuales: 25 € por clase
+## Servicios
+- Clases de inglés para niños de 6–8, 9–11 y 12–14 años
+- Grupos pequeños de máximo 4 alumnos
+- Clases individuales
 - Apoyo escolar de inglés: deberes, tareas y trabajos
-- Expresión oral, comprensión lectora, expresión escrita, gramática y vocabulario
-- Preparación de Cambridge English para alumnos en edad escolar y adolescentes
+- Expresión oral, comprensión auditiva, comprensión lectora, expresión escrita, gramática y vocabulario
+- Preparación de objetivos Cambridge para alumnos mayores y adolescentes
 
-## Timetable
-- Monday–Thursday afternoons
-- 16:30–17:30: 6–8 years
-- 17:30–18:30: 9–11 years
-- 18:30–19:30: 12–14 years
-- Groups open as pupils enrol; actual availability is confirmed directly
+## Precios
+- Grupo completo de 4 alumnos: 12,50 € por alumno y clase
+- Clase individual: 25 € por clase
+- El precio de 12,50 € se aplica cuando el grupo está completo con 4 alumnos
 
-## Location and privacy
-- San Juan de Alicante / Sant Joan d’Alacant
-- Atiende a familias de Mutxamel
-- La dirección exacta de la vivienda no se publica
+## Horarios previstos
+- Lunes a jueves por la tarde
+- 16:30–17:30: 6–8 años
+- 17:30–18:30: 9–11 años
+- 18:30–19:30: 12–14 años
+- Los grupos se abren conforme se incorporan alumnos; la disponibilidad real se confirma directamente
 
-## Website
+## Sitio web
 - Inicio: https://www.teachersara.es/
 - Clases y precios: https://www.teachersara.es/classes.html
 - Sobre Sara: https://www.teachersara.es/about.html
 - Cambridge: https://www.teachersara.es/cambridge.html
 - Guía para familias: https://www.teachersara.es/guides.html
-- FAQ: https://www.teachersara.es/faq.html
-- Contact: https://www.teachersara.es/contact.html
+- Preguntas frecuentes: https://www.teachersara.es/faq.html
+- Contacto: https://www.teachersara.es/contact.html
 
-## Guías útiles para familias
+## Guías para familias
 - https://www.teachersara.es/guia/clases-ingles-ninos-san-juan-alicante.html
 - https://www.teachersara.es/guia/apoyo-escolar-ingles-ninos.html
 - https://www.teachersara.es/guia/ingles-6-8-anos.html
