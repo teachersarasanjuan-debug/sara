@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 760" role="img" aria-labelledby="title desc">
+<title id="title">Teacher Sara</title><desc id="desc">Friendly illustrated British English teacher with books and classroom details.</desc>
+<rect width="640" height="760" rx="55" fill="#eaf6f0"/>
+<circle cx="470" cy="145" r="83" fill="#fff3b9"/><path d="M450 84l12 42 42-8-31 28 23 36-40-18-21 39-6-44-43-4 39-19-13-42 33 25z" fill="#ffd75e"/>
+<path d="M170 580h300v38H170z" fill="#23866d"/><rect x="190" y="520" width="260" height="65" rx="20" fill="#fff"/><path d="M235 540h170v26H235z" fill="#dceee8"/>
+<rect x="210" y="470" width="220" height="90" rx="20" fill="#102a43"/><rect x="228" y="486" width="184" height="52" rx="9" fill="#fff"/><path d="M247 504h105" stroke="#23866d" stroke-width="7" stroke-linecap="round"/><path d="M247 522h75" stroke="#a3bdb2" stroke-width="7" stroke-linecap="round"/>
+<path d="M210 323c38-40 123-40 166 0l22 170H188Z" fill="#176b57"/><path d="M250 329h92v150h-92z" fill="#fff"/><path d="M284 369h26v111h-26z" fill="#ffd75e"/>
+<path d="M231 238c4-66 45-95 82-95 42 0 82 35 82 95 0 53-36 88-82 88-47 0-87-36-82-88Z" fill="#f3c6a7"/>
+<path d="M224 235c-1-80 44-123 92-123 51 0 92 41 90 114-21-2-58-15-81-50-17 31-56 54-101 59Z" fill="#d9a34b"/>
+<path d="M244 207c6-36 25-55 54-62-5 19 17 37 52 47-24 25-59 34-106 15Z" fill="#e6b45f"/>
+<circle cx="274" cy="237" r="5" fill="#102a43"/><circle cx="340" cy="237" r="5" fill="#102a43"/>
+<path d="M279 264c17 13 37 13 54 0" fill="none" stroke="#b96855" stroke-width="6" stroke-linecap="round"/>
+<path d="M182 364c-38 15-60 61-47 102l33 3 23-86Z" fill="#f3c6a7"/><path d="M409 364c38 15 60 61 47 102l-33 3-23-86Z" fill="#f3c6a7"/>
+<path d="M112 335c19-23 50-20 69 2-13 12-28 20-45 20-11 0-20-6-24-22Z" fill="#dceee8"/><path d="M528 335c-19-23-50-20-69 2 13 12 28 20 45 20 11 0 20-6 24-22Z" fill="#dceee8"/>
+<rect x="83" y="610" width="180" height="34" rx="10" fill="#ffd75e"/><rect x="105" y="646" width="180" height="28" rx="10" fill="#23866d"/><rect x="128" y="674" width="180" height="28" rx="10" fill="#102a43"/>
+<path d="M455 604c46-12 101 5 108 53-44 25-93 12-108-53Z" fill="#fff" stroke="#d9e8e1" stroke-width="6"/><text x="505" y="637" text-anchor="middle" font-family="Arial" font-size="28" font-weight="700" fill="#176b57">Hello!</text>
+</svg>
