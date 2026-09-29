@@ -1,16 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-labelledby="title desc">
-<title id="title">Teacher Sara English Classes</title><desc id="desc">Logo for Teacher Sara English classes in San Juan, Alicante.</desc>
-<rect width="640" height="420" rx="72" fill="#fffdf7"/>
-<circle cx="320" cy="125" r="77" fill="#eaf6f0"/>
-<path d="M296 73c9-23 43-28 59-7 14 18 10 47-9 59-22 14-51 1-55-24-2-10 0-19 5-28Z" fill="#f3c6a7"/>
-<path d="M280 105c4-35 26-57 58-57 29 0 51 21 55 54-16-7-33-17-45-33-11 20-39 33-68 36Z" fill="#d9a34b"/>
-<circle cx="310" cy="112" r="4" fill="#102a43"/><circle cx="345" cy="112" r="4" fill="#102a43"/>
-<path d="M314 132c11 9 25 9 36 0" fill="none" stroke="#b96855" stroke-width="5" stroke-linecap="round"/>
-<path d="M253 201c28-27 104-27 133 0v33H253Z" fill="#176b57"/>
-<path d="M275 204c13 10 70 12 93 0v79H275Z" fill="#fff"/>
-<path d="M210 75c18-26 55-28 76-6-7 16-20 25-39 27-15 1-27-5-37-21Z" fill="#d8ece7"/>
-<path d="M412 75c-18-26-55-28-76-6 7 16 20 25 39 27 15 1 27-5 37-21Z" fill="#d8ece7"/>
-<path d="M300 277h42v21h-42z" fill="#ffd75e"/><path d="M290 296h62v13h-62z" fill="#23866d"/>
-<text x="320" y="350" text-anchor="middle" font-family="Georgia,serif" font-size="62" font-weight="700" fill="#102a43">Teacher Sara</text>
-<text x="320" y="382" text-anchor="middle" font-family="Arial,sans-serif" font-size="17" font-weight="700" letter-spacing="4" fill="#23866d">ENGLISH CLASSES · SAN JUAN</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 862 869" role="img" aria-labelledby="t d">
+<title id="t">Teacher Sara English Classes — San Juan, Alicante</title>
+<desc id="d">Teacher Sara logo with a Union Jack heart, navy lettering and red accents.</desc>
+<rect width="862" height="869" rx="431" fill="#fae7ea"/>
+<ellipse cx="431" cy="435" rx="422" ry="425" fill="none" stroke="#efb9c5" stroke-width="7"/>
+<defs><clipPath id="heart"><path d="M431 275C374 188 262 119 235 220c-26 97 84 164 196 244 112-80 222-147 196-244-27-101-139-32-196 55Z"/></clipPath></defs>
+<g clip-path="url(#heart)">
+<rect x="225" y="100" width="412" height="390" fill="#173d70"/>
+<path d="M225 145L520 490h117L332 100H225Z" fill="#fff"/>
+<path d="M637 145L342 490H225l305-390h107Z" fill="#fff"/>
+<path d="M225 145L520 490h70L295 100h-70Z" fill="#e52036"/>
+<path d="M637 145L342 490h-70l295-390h70Z" fill="#e52036"/>
+<rect x="390" y="100" width="82" height="390" fill="#fff"/>
+<rect x="225" y="252" width="412" height="82" fill="#fff"/>
+<rect x="405" y="100" width="52" height="390" fill="#e52036"/>
+<rect x="225" y="267" width="412" height="52" fill="#e52036"/>
+</g>
+<text x="431" y="380" text-anchor="middle" font-family="Arial,sans-serif" font-size="68" font-weight="700" letter-spacing="16" fill="#102f63">TEACHER</text>
+<text x="431" y="552" text-anchor="middle" font-family="Arial,sans-serif" font-size="150" font-weight="800" letter-spacing="10" fill="#102f63">SARA</text>
+<line x1="105" y1="594" x2="757" y2="594" stroke="#d72236" stroke-width="6"/>
+<text x="431" y="672" text-anchor="middle" font-family="Arial,sans-serif" font-size="43" font-weight="700" letter-spacing="8" fill="#102f63">ENGLISH CLASSES</text>
+<text x="431" y="748" text-anchor="middle" font-family="Arial,sans-serif" font-size="31" font-weight="500" letter-spacing="6" fill="#102f63">SAN JUAN, ALICANTE</text>
+<text x="431" y="820" text-anchor="middle" font-family="Arial,sans-serif" font-size="55" fill="#d72236">♥</text>
 </svg>
