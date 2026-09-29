@@ -4,6 +4,19 @@ const PHOTO=SITE+"/assets/teacher-sara-photo.webp";
 const LOGO=SITE+"/assets/teacher-sara-logo.webp";
 
 const toggle=document.querySelector('.menu-toggle'),nav=document.querySelector('#site-nav');
+if(nav){
+  const wanted=[
+    ['online.html','Clases online'],
+    ['ingles-profesionales-empresas.html','Profesionales']
+  ];
+  wanted.forEach(([href,label])=>{
+    if(!nav.querySelector('a[href="'+href+'"]')){
+      const a=document.createElement('a');a.href=href;a.textContent=label;
+      const guide=nav.querySelector('a[href="guides.html"]');
+      if(guide) nav.insertBefore(a,guide); else nav.appendChild(a);
+    }
+  });
+}
 if(toggle&&nav){toggle.addEventListener('click',()=>{const open=nav.classList.toggle('open');toggle.setAttribute('aria-expanded',open?'true':'false')});nav.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>nav.classList.remove('open')))}
 
 const toast=document.querySelector('#toast');
@@ -126,7 +139,10 @@ function seo(){
     'cambridge.html':['Cambridge',SITE+'/cambridge.html'],
     'faq.html':['Preguntas frecuentes',SITE+'/faq.html'],
     'contact.html':['Contacto',SITE+'/contact.html'],
-    'guides.html':['Guía para familias',SITE+'/guides.html']
+    'guides.html':['Guía para familias',SITE+'/guides.html'],
+    'online.html':['Clases online',SITE+'/online.html'],
+    'clases-ingles-online-ninos.html':['Clases de inglés online para niños',SITE+'/clases-ingles-online-ninos.html'],
+    'ingles-profesionales-empresas.html':['Profesionales y empresas',SITE+'/ingles-profesionales-empresas.html']
   };
   if(key==='privacy.html'){
     canonical.href=SITE+'/privacy.html';
