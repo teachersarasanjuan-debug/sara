@@ -7,7 +7,7 @@ on:
       - '.github/workflows/social-verify.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
@@ -26,3 +26,15 @@ jobs:
           TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
           TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
         run: python3 scripts/social_verify.py
+
+      - name: Record successful verification
+        if: success()
+        run: |
+          mkdir -p social
+          printf '{"verified_at":"%s","facebook":"ok","instagram":"ok","tiktok":"ok","published_anything":false}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > social/connection-status.json
+          git config user.name "Teacher Sara Social Verifier"
+          git config user.email "actions@users.noreply.github.com"
+          git add social/connection-status.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Record social connection verification"
+          git push
