@@ -1,0 +1,10 @@
+{
+  "posts": [],
+  "_instructions": {
+    "status_flow": "draft -> approved -> published",
+    "required_fields": ["id", "publish_at", "platforms", "type", "caption"],
+    "media_required_for": ["instagram", "tiktok"],
+    "publish_at_timezone": "Europe/Madrid",
+    "note": "Only posts with status=approved and publish_at <= now are published. Never store tokens in this file."
+  }
+}
