@@ -2,20 +2,19 @@
 """
 Teacher Sara social publisher.
 
-Reads social/queue.json and publishes only entries with:
-  - status == "approved"
-  - publish_at <= current UTC time
+Only entries with status="approved" and publish_at <= now are processed.
 
-Credentials are read exclusively from environment variables / GitHub Actions secrets.
+Platform credentials are read only from environment variables supplied by
+GitHub Actions Secrets. Secrets never belong in repository files.
 
-Supported:
-  - Facebook Page photo/text posts via Meta Graph API
-  - Instagram Professional image posts via Meta Graph API
-  - TikTok photo direct posts via Content Posting API
-  - TikTok video direct posts via Content Posting API (PULL_FROM_URL)
+Current publishing targets:
+- Facebook Page
+- Instagram Professional account
+- TikTok direct photo/video posting after the TikTok app has the required
+  production approval/audit
 
-The TikTok client must have the required production approval/audit before public
-direct posting. This script deliberately does not bypass platform controls.
+The queue records a result per platform so a temporary failure on one platform
+does not cause successful posts on the other platforms to be duplicated.
 """
 
 from __future__ import annotations
@@ -24,9 +23,9 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
-import urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -64,9 +63,12 @@ def http_json(url: str, method: str = "GET", data=None, headers=None):
         else:
             body = data
 
-    req = urllib.request.Request(url, data=body, method=method, headers=req_headers)
+    request = urllib.request.Request(
+        url, data=body, method=method, headers=req_headers
+    )
+
     try:
-        with urllib.request.urlopen(req, timeout=60) as response:
+        with urllib.request.urlopen(request, timeout=60) as response:
             raw = response.read().decode("utf-8")
             return json.loads(raw) if raw else {}
     except urllib.error.HTTPError as exc:
@@ -79,7 +81,9 @@ def http_json(url: str, method: str = "GET", data=None, headers=None):
 def require(name: str) -> str:
     value = os.getenv(name)
     if not value:
-        raise RuntimeError(f"Missing required GitHub secret/environment variable: {name}")
+        raise RuntimeError(
+            f"Missing required GitHub secret/environment variable: {name}"
+        )
     return value
 
 
@@ -88,36 +92,52 @@ def publish_facebook(post: dict) -> str:
     page_id = require("META_PAGE_ID")
     caption = post.get("caption", "")
     media_url = post.get("media_url")
+    link = post.get("link")
 
     if media_url:
-        url = f"{META_BASE}/{page_id}/photos"
         result = http_json(
-            url,
+            f"{META_BASE}/{page_id}/photos",
             method="POST",
-            data={"url": media_url, "caption": caption, "access_token": token},
+            data={
+                "url": media_url,
+                "caption": caption,
+                "access_token": token,
+            },
         )
     else:
-        url = f"{META_BASE}/{page_id}/feed"
+        payload = {
+            "message": caption,
+            "access_token": token,
+        }
+        if link:
+            payload["link"] = link
         result = http_json(
-            url,
+            f"{META_BASE}/{page_id}/feed",
             method="POST",
-            data={"message": caption, "link": post.get("link", ""), "access_token": token},
+            data=payload,
         )
 
-    if "id" not in result:
+    post_id = result.get("id")
+    if not post_id:
         raise RuntimeError(f"Facebook publish returned no id: {result}")
-    return str(result["id"])
+    return str(post_id)
 
 
-def wait_for_instagram_container(creation_id: str, token: str, attempts: int = 12) -> None:
+def wait_for_instagram_container(
+    creation_id: str, token: str, attempts: int = 12
+) -> None:
     for _ in range(attempts):
-        url = f"{META_BASE}/{creation_id}?fields=status_code,status&access_token={urllib.parse.quote(token)}"
-        result = http_json(url)
-        if result.get("status_code") == "FINISHED":
+        query = urllib.parse.urlencode(
+            {"fields": "status_code,status", "access_token": token}
+        )
+        result = http_json(f"{META_BASE}/{creation_id}?{query}")
+        status = result.get("status_code")
+        if status == "FINISHED":
             return
-        if result.get("status_code") in {"ERROR", "EXPIRED"}:
+        if status in {"ERROR", "EXPIRED"}:
             raise RuntimeError(f"Instagram media container failed: {result}")
         time.sleep(5)
+
     raise RuntimeError("Instagram media container did not finish in time")
 
 
@@ -137,27 +157,38 @@ def publish_instagram(post: dict) -> str:
     }
 
     if media_type == "video":
-        params.update({"media_type": "REELS", "video_url": media_url})
+        params.update({
+            "media_type": "REELS",
+            "video_url": media_url,
+        })
     else:
         params.update({"image_url": media_url})
 
-    create_url = f"{META_BASE}/{ig_user_id}/media"
-    created = http_json(create_url, method="POST", data=params)
+    created = http_json(
+        f"{META_BASE}/{ig_user_id}/media",
+        method="POST",
+        data=params,
+    )
     creation_id = created.get("id")
     if not creation_id:
-        raise RuntimeError(f"Instagram container creation failed: {created}")
+        raise RuntimeError(
+            f"Instagram container creation failed: {created}"
+        )
 
     wait_for_instagram_container(creation_id, token)
 
-    publish_url = f"{META_BASE}/{ig_user_id}/media_publish"
     published = http_json(
-        publish_url,
+        f"{META_BASE}/{ig_user_id}/media_publish",
         method="POST",
-        data={"creation_id": creation_id, "access_token": token},
+        data={
+            "creation_id": creation_id,
+            "access_token": token,
+        },
     )
-    if "id" not in published:
+    post_id = published.get("id")
+    if not post_id:
         raise RuntimeError(f"Instagram publish failed: {published}")
-    return str(published["id"])
+    return str(post_id)
 
 
 def refresh_tiktok_token() -> str:
@@ -175,16 +206,17 @@ def refresh_tiktok_token() -> str:
             "refresh_token": refresh_token,
         },
     )
+
     access_token = result.get("access_token")
     if not access_token:
         raise RuntimeError(f"TikTok token refresh failed: {result}")
 
-    # The refresh_token can rotate. GitHub Actions cannot safely rewrite a secret
-    # from this script, so we keep the workflow fail-safe and instruct the user
-    # to replace the secret when TikTok rotates it.
     rotated = result.get("refresh_token")
     if rotated and rotated != refresh_token:
-        print("WARNING: TikTok returned a rotated refresh token. Update the TIKTOK_REFRESH_TOKEN GitHub secret after this run.", file=sys.stderr)
+        raise RuntimeError(
+            "TikTok rotated the refresh token. Replace the "
+            "TIKTOK_REFRESH_TOKEN GitHub Secret with the new refresh token."
+        )
 
     return access_token
 
@@ -202,6 +234,13 @@ def tiktok_creator_info(access_token: str) -> dict:
 
 
 def publish_tiktok(post: dict) -> str:
+    if os.getenv("TIKTOK_DIRECT_POST_ENABLED", "").lower() != "true":
+        raise RuntimeError(
+            "TikTok direct posting is disabled until the TikTok app has "
+            "production approval/audit. Set TIKTOK_DIRECT_POST_ENABLED=true "
+            "only after that approval."
+        )
+
     token = refresh_tiktok_token()
     creator = tiktok_creator_info(token)
     options = creator.get("data", {}).get("privacy_level_options", [])
@@ -209,7 +248,7 @@ def publish_tiktok(post: dict) -> str:
 
     if privacy not in options:
         raise RuntimeError(
-            f"TikTok privacy level {privacy!r} is not available for this account. "
+            f"TikTok privacy level {privacy!r} is not available. "
             f"Available: {options}"
         )
 
@@ -218,16 +257,20 @@ def publish_tiktok(post: dict) -> str:
         raise RuntimeError("TikTok posts require media_url")
 
     media_type = post.get("type", "video").lower()
-
+    is_aigc = bool(post.get("is_aigc", False))
     if media_type == "image":
         payload = {
             "post_info": {
-                "title": post.get("title", post.get("caption", "")[:90]),
+                "title": post.get(
+                    "title", post.get("caption", "")[:90]
+                ),
                 "description": post.get("caption", ""),
                 "privacy_level": privacy,
                 "disable_comment": False,
                 "brand_organic_toggle": True,
-                "auto_add_music": bool(post.get("auto_add_music", False)),
+                "auto_add_music": bool(
+                    post.get("auto_add_music", False)
+                ),
             },
             "source_info": {
                 "source": "PULL_FROM_URL",
@@ -236,7 +279,7 @@ def publish_tiktok(post: dict) -> str:
             },
             "post_mode": "DIRECT_POST",
             "media_type": "PHOTO",
-            "is_aigc": bool(post.get("is_aigc", False)),
+            "is_aigc": is_aigc,
         }
         endpoint = f"{TIKTOK_BASE}/post/publish/content/init/"
     else:
@@ -248,7 +291,7 @@ def publish_tiktok(post: dict) -> str:
                 "disable_duet": False,
                 "disable_stitch": False,
                 "brand_organic_toggle": True,
-                "is_aigc": bool(post.get("is_aigc", False)),
+                "is_aigc": is_aigc,
             },
             "source_info": {
                 "source": "PULL_FROM_URL",
@@ -257,23 +300,24 @@ def publish_tiktok(post: dict) -> str:
         }
         endpoint = f"{TIKTOK_BASE}/post/publish/video/init/"
 
-    body = json.dumps(payload).encode("utf-8")
     result = http_json(
         endpoint,
         method="POST",
-        data=body,
+        data=json.dumps(payload).encode("utf-8"),
         headers={
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json; charset=UTF-8",
         },
     )
 
-    if result.get("error", {}).get("code") not in (None, "ok"):
+    error_code = result.get("error", {}).get("code")
+    if error_code not in (None, "ok"):
         raise RuntimeError(f"TikTok publish failed: {result}")
 
     publish_id = result.get("data", {}).get("publish_id")
     if not publish_id:
         raise RuntimeError(f"TikTok publish returned no publish_id: {result}")
+
     return str(publish_id)
 
 
@@ -295,16 +339,21 @@ def main() -> int:
         try:
             publish_at = parse_dt(post["publish_at"])
         except Exception as exc:
-            failures.append(f"{post.get('id','unknown')}: invalid publish_at: {exc}")
+            failures.append(
+                f"{post.get('id', 'unknown')}: invalid publish_at: {exc}"
+            )
             continue
 
         if publish_at > current:
             continue
 
         platforms = post.get("platforms", [])
-        results = {}
+        results = post.setdefault("platform_results", {})
 
         for platform in platforms:
+            if platform in results:
+                continue
+
             try:
                 if platform == "facebook":
                     results[platform] = publish_facebook(post)
@@ -313,20 +362,21 @@ def main() -> int:
                 elif platform == "tiktok":
                     results[platform] = publish_tiktok(post)
                 else:
-                    raise RuntimeError(f"Unsupported platform: {platform}")
+                    raise RuntimeError(
+                        f"Unsupported platform: {platform}"
+                    )
+                changed = True
+                print(
+                    f"Published {post.get('id')} to {platform}"
+                )
             except Exception as exc:
-                failures.append(f"{post.get('id','unknown')} / {platform}: {exc}")
+                failures.append(
+                    f"{post.get('id', 'unknown')} / {platform}: {exc}"
+                )
 
-        if len(results) == len(platforms) and platforms:
+        if platforms and all(platform in results for platform in platforms):
             post["status"] = "published"
             post["published_at"] = current.isoformat()
-            post["platform_results"] = results
-            changed = True
-            print(f"Published {post.get('id')} to {', '.join(platforms)}")
-        elif results:
-            # Do not mark partially published content as fully published.
-            post["last_attempt_at"] = current.isoformat()
-            post["platform_results_partial"] = results
             changed = True
 
     if changed:
