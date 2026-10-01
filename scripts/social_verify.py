@@ -116,7 +116,7 @@ def main():
         except Exception as exc:
             failures.append(f"TikTok verification failed: {exc}")
     else:
-        failures.append("TikTok verification skipped: one or more TikTok secrets are missing")
+        print("TIKTOK NOT CONFIGURED: TikTok secrets have not been added yet.")
 
     if failures:
         for item in failures:
