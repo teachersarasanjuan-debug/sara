@@ -1,4 +1,4 @@
-name: Verify Teacher Sara Social Connections
+name: Verify Teacher Sara Social Connections # Meta credential check
 
 on:
   workflow_dispatch:
