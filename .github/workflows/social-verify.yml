@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - '.github/workflows/social-verify.yml'
+      - 'scripts/social_verify.py'
 
 permissions:
   contents: write
