@@ -2,6 +2,9 @@ name: Verify Teacher Sara Social Connections
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/social-verify.yml'
 
 permissions:
   contents: read
