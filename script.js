@@ -1,5 +1,5 @@
 (() => {
-const SITE="https://www.teachersara.es";
+const SITE="https://teachersara.es";
 const PHOTO=SITE+"/assets/teacher-sara-photo.webp";
 const LOGO=SITE+"/assets/teacher-sara-logo.webp";
 
@@ -29,9 +29,8 @@ function link(rel,href,extra){
   if(!el){el=document.createElement('link');el.rel=rel;el.href=href;Object.assign(el,extra||{});document.head.appendChild(el)}
 }
 function jsonLd(data){
-  let el=document.head.querySelector('script[data-teacher-sara-seo]');
-  if(!el){el=document.createElement('script');el.type='application/ld+json';el.dataset.teacherSaraSeo='';document.head.appendChild(el)}
-  el.textContent=JSON.stringify(data);
+  // Structured data is maintained in each page's HTML head. Do not inject a second,
+  // potentially conflicting JSON-LD graph at runtime.
 }
 function currentKey(){
   const p=location.pathname.replace(/\\/g,'/');
@@ -50,7 +49,7 @@ function addVisibleBreadcrumb(name,guide){
   const main=document.querySelector('main'); if(!main) return;
   const nav=document.createElement('nav');
   nav.className='breadcrumbs wrap'; nav.setAttribute('aria-label','Migas de pan');
-  const a=document.createElement('a'); a.href=guide?'../index.html':'index.html'; a.textContent='Inicio'; nav.appendChild(a);
+  const a=document.createElement('a'); a.href='/'; a.textContent='Inicio'; nav.appendChild(a);
   const s1=document.createElement('span'); s1.setAttribute('aria-hidden','true'); s1.textContent='›'; nav.appendChild(s1);
   if(guide){
     const g=document.createElement('a'); g.href='../guides.html'; g.textContent='Guía para familias'; nav.appendChild(g);
