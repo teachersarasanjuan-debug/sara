@@ -196,6 +196,40 @@ function seo(){
     ]});
   }
 }
+function prepareContactLinks(){
+  const defaultMessage = 'Hola, Sara. He visto la web de Teacher Sara y me gustaría información sobre las clases de inglés. Edad y curso: ____. Me interesa: grupo, clase individual u online. Horario preferido: ____.';
+  document.querySelectorAll('a[href*="wa.me/34624344964"]').forEach(a=>{
+    try {
+      const url = new URL(a.href, window.location.href);
+      if (!url.searchParams.has('text')) {
+        url.searchParams.set('text', defaultMessage);
+        a.href = url.toString();
+      }
+    } catch (_) {}
+    a.addEventListener('click', ()=>{
+      // These events are recorded automatically once a Google Analytics tag is installed.
+      if (typeof window.gtag === 'function') {
+        window.gtag('event', 'whatsapp_click', {
+          page_title: document.title,
+          page_path: window.location.pathname,
+          link_text: (a.textContent || 'WhatsApp').trim()
+        });
+      }
+    });
+  });
+  document.querySelectorAll('a[href*="docs.google.com/forms"]').forEach(a=>{
+    a.addEventListener('click', ()=>{
+      if (typeof window.gtag === 'function') {
+        window.gtag('event', 'registration_form_click', {
+          page_title: document.title,
+          page_path: window.location.pathname
+        });
+      }
+    });
+  });
+}
+
+prepareContactLinks();
 replaceTextTypos();
 seo();
 
