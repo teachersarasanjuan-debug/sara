@@ -14,3 +14,37 @@
 /* Keep anchor targets visible below the sticky navigation. */
 .section[id], .price-card[id] { scroll-margin-top: 110px; }
 @media(max-width:560px){ .section[id], .price-card[id] { scroll-margin-top: 88px; } }
+
+
+/* Consent-based Google Analytics notice */
+.cookie-consent-banner{
+  position:fixed;left:16px;right:16px;bottom:16px;z-index:1000;
+  width:min(780px,calc(100% - 32px));margin:0 auto;
+  display:flex;align-items:center;justify-content:space-between;gap:22px;
+  padding:18px 20px;background:#fff;border:1px solid var(--line);
+  border-radius:18px;box-shadow:0 16px 48px rgba(16,42,67,.22);
+  color:var(--navy);font:400 14px/1.5 Nunito,Arial,sans-serif;
+}
+.cookie-consent-copy{flex:1;min-width:0}
+.cookie-consent-copy strong{display:block;font-weight:800;font-size:16px;margin-bottom:4px}
+.cookie-consent-copy p{margin:0;color:var(--muted)}
+.cookie-consent-copy a{text-decoration:underline;text-underline-offset:2px;color:var(--green);font-weight:800}
+.cookie-consent-actions{display:flex;flex-shrink:0;gap:8px;flex-wrap:wrap}
+.cookie-consent-actions button{
+  border:1px solid var(--green);border-radius:999px;padding:10px 14px;
+  cursor:pointer;font:800 13px/1.2 Nunito,Arial,sans-serif;
+}
+.cookie-consent-actions .cookie-accept{background:var(--green);color:#fff}
+.cookie-consent-actions .cookie-reject{background:#fff;color:var(--green)}
+.cookie-settings-link{
+  border:0;background:transparent;color:inherit;text-decoration:underline;
+  text-underline-offset:3px;cursor:pointer;font:inherit;font-size:13px;padding:4px 0;
+}
+.cookie-consent-actions button:focus-visible,.cookie-settings-link:focus-visible{
+  outline:3px solid var(--yellow);outline-offset:3px;
+}
+@media(max-width:650px){
+  .cookie-consent-banner{left:10px;right:10px;bottom:10px;width:auto;display:block;padding:15px;border-radius:16px}
+  .cookie-consent-actions{margin-top:12px}
+  .cookie-consent-actions button{flex:1;padding:11px 9px}
+}
