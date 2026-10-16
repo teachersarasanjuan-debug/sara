@@ -196,6 +196,109 @@ function seo(){
     ]});
   }
 }
+const TEACHER_SARA_GA_ID = 'G-BRBQ9FCMBQ';
+const TEACHER_SARA_CONSENT_KEY = 'teacherSaraAnalyticsConsent';
+
+function loadTeacherSaraAnalytics(){
+  if (window.__teacherSaraAnalyticsLoaded) return;
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = window.gtag || function(){ window.dataLayer.push(arguments); };
+  window.gtag('js', new Date());
+  window.gtag('config', TEACHER_SARA_GA_ID);
+  const googleTag = document.createElement('script');
+  googleTag.async = true;
+  googleTag.src = 'https://www.googletagmanager.com/gtag/js?id=' + TEACHER_SARA_GA_ID;
+  document.head.appendChild(googleTag);
+  window.__teacherSaraAnalyticsLoaded = true;
+}
+
+function getTeacherSaraAnalyticsChoice(){
+  try { return window.localStorage.getItem(TEACHER_SARA_CONSENT_KEY) || ''; }
+  catch (_) { return ''; }
+}
+
+function saveTeacherSaraAnalyticsChoice(choice){
+  try { window.localStorage.setItem(TEACHER_SARA_CONSENT_KEY, choice); }
+  catch (_) {}
+}
+
+function clearTeacherSaraAnalyticsCookies(){
+  const names = document.cookie.split(';').map(part => part.split('=')[0].trim())
+    .filter(name => name === '_ga' || name === '_gid' || name === '_gat' || name.indexOf('_ga_') === 0);
+  const domains = ['', window.location.hostname, '.' + window.location.hostname];
+  names.forEach(name => domains.forEach(domain => {
+    const domainPart = domain ? '; domain=' + domain : '';
+    document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/' + domainPart;
+  }));
+}
+
+function setTeacherSaraAnalyticsChoice(choice){
+  saveTeacherSaraAnalyticsChoice(choice);
+  if (choice === 'granted') {
+    if (window.__teacherSaraAnalyticsLoaded && typeof window.gtag === 'function') {
+      window.gtag('consent', 'update', {
+        analytics_storage: 'granted',
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied'
+      });
+    } else {
+      loadTeacherSaraAnalytics();
+    }
+  } else {
+    if (typeof window.gtag === 'function') {
+      window.gtag('consent', 'update', {
+        analytics_storage: 'denied',
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied'
+      });
+    }
+    clearTeacherSaraAnalyticsCookies();
+  }
+  const banner = document.querySelector('.cookie-consent-banner');
+  if (banner) banner.remove();
+}
+
+function showTeacherSaraConsent(force){
+  if (document.querySelector('.cookie-consent-banner')) return;
+  if (!force && getTeacherSaraAnalyticsChoice()) return;
+
+  const banner = document.createElement('section');
+  banner.className = 'cookie-consent-banner';
+  banner.setAttribute('role', 'dialog');
+  banner.setAttribute('aria-label', 'Preferencias de cookies');
+  banner.setAttribute('aria-live', 'polite');
+  banner.innerHTML =
+    '<div class="cookie-consent-copy">' +
+      '<strong>Tu privacidad importa</strong>' +
+      '<p>Usamos Google Analytics para entender qué páginas ayudan a las familias. Las analíticas solo se activan si las aceptas. Puedes rechazar y seguir usando la web. <a href="/privacy.html">Política de privacidad</a>.</p>' +
+    '</div>' +
+    '<div class="cookie-consent-actions">' +
+      '<button type="button" class="cookie-accept">Aceptar analíticas</button>' +
+      '<button type="button" class="cookie-reject">Rechazar</button>' +
+    '</div>';
+  document.body.appendChild(banner);
+  banner.querySelector('.cookie-accept').addEventListener('click', () => setTeacherSaraAnalyticsChoice('granted'));
+  banner.querySelector('.cookie-reject').addEventListener('click', () => setTeacherSaraAnalyticsChoice('denied'));
+}
+
+function setupTeacherSaraCookiePreferences(){
+  const footerBottom = document.querySelector('.footer-bottom');
+  if (footerBottom && !footerBottom.querySelector('.cookie-settings-link')) {
+    const settings = document.createElement('button');
+    settings.type = 'button';
+    settings.className = 'cookie-settings-link';
+    settings.textContent = 'Preferencias de cookies';
+    settings.addEventListener('click', () => showTeacherSaraConsent(true));
+    footerBottom.appendChild(settings);
+  }
+
+  const choice = getTeacherSaraAnalyticsChoice();
+  if (choice === 'granted') loadTeacherSaraAnalytics();
+  else showTeacherSaraConsent(false);
+}
+
 function prepareContactLinks(){
   const defaultMessage = 'Hola, Sara. He visto la web de Teacher Sara y me gustaría información sobre las clases de inglés. Edad y curso: ____. Me interesa: grupo, clase individual u online. Horario preferido: ____.';
   document.querySelectorAll('a[href*="wa.me/34624344964"]').forEach(a=>{
@@ -230,6 +333,7 @@ function prepareContactLinks(){
 }
 
 prepareContactLinks();
+setupTeacherSaraCookiePreferences();
 replaceTextTypos();
 seo();
 
