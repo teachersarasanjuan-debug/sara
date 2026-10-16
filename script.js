@@ -96,7 +96,7 @@ function seo(){
     'apoyo-escolar-ingles-ninos.html':['Apoyo escolar de inglés para niños',SITE+'/guia/apoyo-escolar-ingles-ninos.html'],
     'ingles-6-8-anos.html':['Inglés para niños de 6 a 8 años',SITE+'/guia/ingles-6-8-anos.html'],
     'cambridge-ingles-adolescentes-alicante.html':['Cambridge English para adolescentes',SITE+'/guia/cambridge-ingles-adolescentes-alicante.html'],
-    'clases-ingles-mutxamel-ninos.html':['Clases de inglés para niños en Mutxamel',SITE+'/guia/clases-ingles-mutxamel-ninos.html']
+    'clases-ingles-mutxamel-ninos.html':['Clases de inglés para niños de Mutxamel',SITE+'/guia/clases-ingles-mutxamel-ninos.html']
   };
 
   if(key==='index.html'){
