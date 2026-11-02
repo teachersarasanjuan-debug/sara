@@ -444,3 +444,6 @@ footer{background:#252b27;color:#e8ece6;padding-top:54px}
 
 /* Small visual markers replace decorative symbols removed from copy. */
 .checks b{display:block;flex:0 0 8px;width:8px;height:8px;margin:7px 6px 0 0;font-size:0;border:1px solid #9b8869;border-radius:50%}
+
+.menu-toggle[aria-expanded="true"]:before{top:20px;transform:rotate(45deg);box-shadow:none}
+.menu-toggle[aria-expanded="true"]:after{top:20px;left:12px;right:12px;width:auto;transform:rotate(-45deg)}
