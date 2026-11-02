@@ -22,10 +22,12 @@ if(toggle&&nav){
   const closeMenu=()=>{
     nav.classList.remove('open');
     toggle.setAttribute('aria-expanded','false');
+    toggle.setAttribute('aria-label','Abrir menú');
   };
   toggle.addEventListener('click',()=>{
     const open=nav.classList.toggle('open');
     toggle.setAttribute('aria-expanded',open?'true':'false');
+    toggle.setAttribute('aria-label',open?'Cerrar menú':'Abrir menú');
   });
   nav.querySelectorAll('a').forEach(a=>a.addEventListener('click',closeMenu));
   document.addEventListener('keydown',event=>{
