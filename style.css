@@ -441,3 +441,6 @@ footer{background:#252b27;color:#e8ece6;padding-top:54px}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
 }
+
+/* Small visual markers replace decorative symbols removed from copy. */
+.checks b{display:block;flex:0 0 8px;width:8px;height:8px;margin:7px 6px 0 0;font-size:0;border:1px solid #9b8869;border-radius:50%}
