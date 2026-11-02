@@ -85,7 +85,16 @@ function seo(){
   const key=currentKey();
   document.documentElement.lang='es-ES';
   meta('author','Teacher Sara');
-  meta('theme-color','#f5f3ec');
+  meta('theme-color','#faf6ed');
+  link('preconnect','https://fonts.googleapis.com');
+  link('preconnect','https://fonts.gstatic.com',{crossOrigin:'anonymous'});
+  if(!document.head.querySelector('link[data-teacher-fonts]')){
+    const f=document.createElement('link');
+    f.rel='stylesheet';
+    f.href='https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap';
+    f.dataset.teacherFonts='';
+    document.head.appendChild(f);
+  }
   // Respect authored robots directives; add a default only when absent.
   if(!document.head.querySelector('meta[name="robots"]')){
     meta('robots',(key==='privacy.html'||key==='404.html')?'noindex,follow':'index,follow,max-image-preview:large');
