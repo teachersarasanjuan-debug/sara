@@ -70,7 +70,10 @@ function seo(){
   document.documentElement.lang='es-ES';
   meta('author','Teacher Sara');
   meta('theme-color','#176b57');
-  meta('robots',key==='privacy.html'?'noindex,follow':'index,follow,max-image-preview:large');
+  // Respect authored robots directives; add a default only when absent.
+  if(!document.head.querySelector('meta[name="robots"]')){
+    meta('robots',(key==='privacy.html'||key==='404.html')?'noindex,follow':'index,follow,max-image-preview:large');
+  }
   link('preconnect','https://fonts.googleapis.com');
   link('preconnect','https://fonts.gstatic.com',{crossOrigin:'anonymous'});
   if(!document.head.querySelector('link[data-teacher-fonts]')){
