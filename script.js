@@ -7,7 +7,7 @@ const toggle=document.querySelector('.menu-toggle'),nav=document.querySelector('
 if(nav){
   const wanted=[
     ['online.html','Clases online'],
-    ['ingles-profesionales-empresas.html','Profesionales']
+    ['ingles-profesionales-empresas.html','Inglés profesional']
   ];
   wanted.forEach(([href,label])=>{
     if(!nav.querySelector('a[href="'+href+'"]')){
