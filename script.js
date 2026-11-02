@@ -7,7 +7,7 @@ const toggle=document.querySelector('.menu-toggle'),nav=document.querySelector('
 if(nav){
   const wanted=[
     ['online.html','Clases online'],
-    ['ingles-profesionales-empresas.html','Inglés profesional']
+    ['ingles-profesionales-empresas.html','Profesionales']
   ];
   wanted.forEach(([href,label])=>{
     if(!nav.querySelector('a[href="'+href+'"]')){
@@ -17,23 +17,7 @@ if(nav){
     }
   });
 }
-if(toggle&&nav){
-  toggle.setAttribute('aria-controls','site-nav');
-  const closeMenu=()=>{
-    nav.classList.remove('open');
-    toggle.setAttribute('aria-expanded','false');
-    toggle.setAttribute('aria-label','Abrir menú');
-  };
-  toggle.addEventListener('click',()=>{
-    const open=nav.classList.toggle('open');
-    toggle.setAttribute('aria-expanded',open?'true':'false');
-    toggle.setAttribute('aria-label',open?'Cerrar menú':'Abrir menú');
-  });
-  nav.querySelectorAll('a').forEach(a=>a.addEventListener('click',closeMenu));
-  document.addEventListener('keydown',event=>{
-    if(event.key==='Escape') closeMenu();
-  });
-}
+if(toggle&&nav){toggle.addEventListener('click',()=>{const open=nav.classList.toggle('open');toggle.setAttribute('aria-expanded',open?'true':'false')});nav.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>nav.classList.remove('open')))}
 
 function meta(name,content,attr='name'){
   let el=document.head.querySelector('meta['+attr+'="'+name+'"]');
@@ -85,21 +69,13 @@ function seo(){
   const key=currentKey();
   document.documentElement.lang='es-ES';
   meta('author','Teacher Sara');
-  meta('theme-color','#faf6ed');
+  meta('theme-color','#176b57');
+  meta('robots',key==='privacy.html'?'noindex,follow':'index,follow,max-image-preview:large');
   link('preconnect','https://fonts.googleapis.com');
   link('preconnect','https://fonts.gstatic.com',{crossOrigin:'anonymous'});
   if(!document.head.querySelector('link[data-teacher-fonts]')){
-    const f=document.createElement('link');
-    f.rel='stylesheet';
-    f.href='https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap';
-    f.dataset.teacherFonts='';
-    document.head.appendChild(f);
+    const f=document.createElement('link');f.rel='stylesheet';f.href='https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap';f.dataset.teacherFonts='';document.head.appendChild(f);
   }
-  // Respect authored robots directives; add a default only when absent.
-  if(!document.head.querySelector('meta[name="robots"]')){
-    meta('robots',(key==='privacy.html'||key==='404.html')?'noindex,follow':'index,follow,max-image-preview:large');
-  }
-  // Use system fonts for a faster, more consistent page load.
   meta('og:type',key.startsWith('guide:')?'article':'website','property');
   meta('og:locale','es_ES','property');
   meta('og:site_name','Teacher Sara','property');
