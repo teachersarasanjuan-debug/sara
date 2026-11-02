@@ -48,3 +48,24 @@
   .cookie-consent-actions{margin-top:12px}
   .cookie-consent-actions button{flex:1;padding:11px 9px}
 }
+
+/* Teacher Sara: quieter editorial visual language */
+:root{--navy:#292f2c;--green:#526b5d;--green2:#6b8272;--cream:#f7f5ef;--blue:#eeefeb;--mint:#e9ede6;--pink:#f2e9e4;--yellow:#d7c6a0;--white:#fffefa;--line:#d9d8cf;--muted:#6e716b;--shadow:0 8px 24px rgba(41,47,44,.06)}
+body{font-family:Arial,Helvetica,sans-serif;line-height:1.7;background:var(--cream)}
+.hero{background:linear-gradient(115deg,#f7f5ef,#eeeee7)}
+.pill{background:#e8e6dc;color:#58695d;letter-spacing:1.2px}
+.hero h1,.section h2,.page-hero h1,.cta-band h2,.age-card h3,.steps h3,.price-card h2,.individual-price,.quote,.footer-brand,.footer-top h3,.online-card h2,.online-card h3,.audience-card h3,.exam-card h3,.contact-card-large h2{font-family:Georgia,'Times New Roman',serif;letter-spacing:0;font-weight:600}
+.hero h1{font-size:clamp(44px,6vw,70px);line-height:1.08}.hero-lead{font-size:18px}
+.topbar{background:rgba(247,245,239,.97);backdrop-filter:none}.topbar nav{font-size:13px;gap:17px}.logo-link img{background:transparent}
+.btn{border-radius:5px;box-shadow:none;transition:background .15s ease,color .15s ease}.btn:hover{transform:none;box-shadow:none}
+.primary,.nav-button{background:#526b5d}.secondary{border-color:#8c9a8e;color:#43564a}
+.card,.price-card,.info-panel,.exam-card,.privacy-card,.contact-card-large,.online-card,.audience-card{border-radius:8px;box-shadow:none;border-color:#dcdad1}
+.featured-card,.price-card.highlighted{border:1px solid #b6a987;transform:none}.feature-wide{border-radius:8px;background:#526b5d}
+.photo-panel{border-radius:8px;background:#e8e6dc}.photo-panel img{border-radius:4px;box-shadow:none}
+.portrait{border-radius:8px;box-shadow:0 8px 24px rgba(41,47,44,.10);border-width:7px}.blob{background:#e3e5dc}
+.sticker{border-radius:4px;box-shadow:0 3px 12px rgba(41,47,44,.07)}
+.page-hero{background:#eeeee7}.cta-band{background:#526b5d}footer{background:#292f2c}
+.icon-badge{font-size:24px;color:#526b5d}.mini-list span,.info-bullets span{background:#eeeee7;border-radius:4px}
+.faq-grid details,.faq-stack details{border-radius:6px;box-shadow:none}
+@media(max-width:900px){.topbar nav{background:var(--cream);box-shadow:0 8px 18px rgba(41,47,44,.08)}}
+@media(max-width:560px){.hero h1{font-size:43px}.page-hero h1{font-size:42px}.section h2{font-size:36px}}
