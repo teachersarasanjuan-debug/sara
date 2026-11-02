@@ -932,3 +932,50 @@ footer,.site-footer{background:#263f31;color:#edf2eb;padding-top:49px}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
 }
+
+
+/* v2 page-specific patterns */
+.class-price-section{background:#f8f2e7;padding:68px 0}
+.class-price-section .section-head{max-width:700px}
+.class-price-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:850px}
+.class-price-item{
+  background:#fffefa;border:1px solid #e5dfd2;border-radius:10px;
+  padding:26px 28px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 14px;
+}
+.class-price-item:first-child{border-top:4px solid #729077}
+.class-price-item:last-child{border-top:4px solid #d49b6d}
+.class-price-item>span{font-weight:700;color:#566458;font-size:15px}
+.class-price-item strong{grid-column:2;grid-row:1 / span 2;font:500 41px/1 "Fraunces",Georgia,serif;color:#315843}
+.class-price-item p{grid-column:1;margin:3px 0 0;color:#6a756b;font-size:14px}
+.class-price-note{max-width:850px;margin:14px 0 0;color:#6b756a;font-size:14px}
+.schedule-section{gap:42px}
+.schedule-list{background:#f2f4eb;border:1px solid #dfe5d8;border-radius:10px;padding:10px 22px}
+.schedule-list div{display:flex;justify-content:space-between;gap:20px;padding:16px 0;border-bottom:1px solid #dce3d7}
+.schedule-list div:last-child{border-bottom:0}
+.schedule-list b{font:500 20px "Fraunces",Georgia,serif;color:#315843}
+.schedule-list span{color:#5e6b60}
+.contact-whatsapp-card{background:#edf3eb;border-color:#d6e1d4}
+.contact-whatsapp-card .whatsapp-big{background:#315843;color:#fff}
+.contact-help-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:55px;align-items:start}
+.contact-help-grid h2{font-size:clamp(35px,4vw,47px);margin:14px 0}
+.contact-help-list{list-style:none;padding:0;margin:20px 0 0}
+.contact-help-list li{padding:12px 0 12px 22px;position:relative;border-bottom:1px solid #dfdfd4;color:#566358}
+.contact-help-list li:before{content:"";position:absolute;left:2px;top:22px;width:7px;height:7px;border-radius:50%;background:#c97859}
+.privacy-card{background:#fffefa}
+.privacy-card h3{font-size:26px}
+@media(max-width:820px){
+  .contact-help-grid{grid-template-columns:1fr;gap:26px}
+}
+@media(max-width:560px){
+  .class-price-section{padding:52px 0}
+  .class-price-grid{grid-template-columns:1fr}
+  .class-price-item{padding:22px}
+  .class-price-item strong{font-size:36px}
+  .schedule-list{padding:8px 16px}
+  .schedule-list b{font-size:18px}
+  .schedule-list span{font-size:14px}
+  .contact-help-grid{gap:20px}
+}
+.footer-top{grid-template-columns:1.55fr 1fr 1fr}
+@media(max-width:820px){.footer-top{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.footer-top{grid-template-columns:1fr 1fr}}
