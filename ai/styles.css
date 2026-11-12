@@ -48,3 +48,5 @@
 .voice-stop{background:#8d443a;color:#fff;border:1px solid rgba(255,255,255,.15)}
 .voice-status{font-size:9px;color:#c5dbcf;line-height:1.6;margin:9px 0 0;min-height:16px}
 .voice-live{color:#b8e1c5!important}
+
+.adult-consent{display:flex;align-items:flex-start;gap:9px;margin:4px 0 2px;color:#64766e;font-size:10px;line-height:1.6}.adult-consent input{margin:2px 0 0;accent-color:var(--green);flex:0 0 auto}.adult-consent a{color:var(--green);font-weight:700;text-decoration:underline}
