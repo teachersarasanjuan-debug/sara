@@ -425,7 +425,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     if (session) {
       authCard.hidden = true;
       accountCard.hidden = false;
-      if (sessionModeBadge && !sessionEndsAt) sessionModeBadge.textContent = mode === "young" ? "SAMPLE" : "LIVE AI";
+      if (sessionModeBadge) sessionModeBadge.textContent = mode === "young" ? "SAMPLE" : "LIVE AI";
       accountIdentity.textContent = session.user?.email || "Signed in";
       await refreshAccountStatus();
     } else {
