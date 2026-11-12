@@ -1,7 +1,8 @@
 import Link from "next/link";
 import {redirect} from "next/navigation";
 import {getCurrentUser} from "@/lib/auth";
-import Coach from "./coach";\nimport VoiceCoach from "./voice-coach";
+import Coach from "./coach";
+import VoiceCoach from "./voice-coach";
 import BillingButtons from "./billing-buttons";
 export default async function StudioPage(){
  const auth=await getCurrentUser();if(!auth)redirect("/login");
