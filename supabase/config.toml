@@ -1,4 +1,4 @@
-project_id = "teacher-sara-ai"
+project_id = "zyvjemwhrvkdpnckigfx"
 
 [functions.tutor]
 verify_jwt = false
