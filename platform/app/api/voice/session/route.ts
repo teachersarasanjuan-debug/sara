@@ -43,7 +43,7 @@ export async function POST(request:Request){
   };
   const form=new FormData();
   form.set("sdp",sdp);
-  form.set("session",new Blob([JSON.stringify(session)],{type:"application/json"}));
+  form.set("session",JSON.stringify(session));
   const response=await fetch("https://api.openai.com/v1/realtime/calls",{
    method:"POST",
    headers:{
