@@ -91,7 +91,6 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
     const level = String(body?.level ?? "B1");
     const selfRating = ["too_easy", "right_level", "too_difficult"].includes(body?.selfRating) ? String(body.selfRating) : "right_level";
     const requestedSessionId = typeof body?.sessionId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.sessionId) ? body.sessionId : crypto.randomUUID();
-    const durationSeconds = Math.max(0, Math.min(7200, Math.floor(Number(body?.durationSeconds) || 0)));
     if (!["general", "cambridge", "business", "young"].includes(track)) {
       return json({ error: "invalid_track" }, 400);
     }
@@ -301,18 +300,23 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
       scenario_key: track, objective,
       teacher_summary: feedback.teacherSummary.slice(0, 500),
       next_step: feedback.nextStep.slice(0, 300),
-      self_rating: selfRating, duration_seconds: durationSeconds,
+      self_rating: selfRating,
       completed_at: new Date().toISOString()
     };
     // One database record represents the whole chat session, not one row per learner turn.
     const { data: existingLesson } = await ctx.supabaseAdmin.from("lesson_sessions")
-      .select("id").eq("id", requestedSessionId).eq("owner_id", userId).maybeSingle();
+      .select("id,created_at").eq("id", requestedSessionId).eq("owner_id", userId).maybeSingle();
     let lessonResult: any, lessonError: any;
     if (existingLesson?.id) {
+      const startedAt = new Date(existingLesson.created_at).getTime();
+      lessonPayload.duration_seconds = Number.isFinite(startedAt)
+        ? Math.max(0, Math.min(7200, Math.floor((Date.now() - startedAt) / 1000)))
+        : 0;
       const updated = await ctx.supabaseAdmin.from("lesson_sessions").update(lessonPayload)
         .eq("id", requestedSessionId).eq("owner_id", userId).select("id").single();
       lessonResult = updated.data; lessonError = updated.error;
     } else {
+      lessonPayload.duration_seconds = 0;
       const inserted = await ctx.supabaseAdmin.from("lesson_sessions")
         .insert({ id: requestedSessionId, ...lessonPayload }).select("id").single();
       lessonResult = inserted.data; lessonError = inserted.error;
