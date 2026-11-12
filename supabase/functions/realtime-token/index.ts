@@ -20,6 +20,14 @@ const json = (body: unknown, status = 200) =>
     headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
   });
 
+function originAllowed(req: Request): boolean {
+  const origin = req.headers.get("origin");
+  if (!origin) return true;
+  const allowed = (Deno.env.get("APP_ALLOWED_ORIGINS") ?? "https://teachersara.es,https://www.teachersara.es")
+    .split(",").map((value) => value.trim()).filter(Boolean);
+  return allowed.includes(origin);
+}
+
 function monthStartUtc() {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
@@ -41,6 +49,7 @@ function voiceInstructions(track: string, level: string) {
 }
 
 const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request, ctx: any) => {
+    if (!originAllowed(req)) return json({ error: "origin_not_allowed" }, 403);
     if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
     const userId = ctx.userClaims?.sub;
     if (!userId) return json({ error: "unauthorized" }, 401);
