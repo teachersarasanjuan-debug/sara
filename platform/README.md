@@ -7,7 +7,7 @@ This application is separate from the existing static Teacher Sara website. The 
 - Supabase email magic-link authentication and protected studio pages.
 - Server-side OpenAI Responses API chat with input moderation, structured teaching feedback and monthly quota checks.
 - Stripe subscription checkout, customer portal and signed webhook handler.
-- Server-minted Realtime API ephemeral credentials for short-lived browser voice sessions.
+- Server-side Realtime WebRTC SDP proxy: the browser sends its offer to the app server, which calls OpenAI with the private API key; no OpenAI credential is sent to the browser.
 - Teacher account overview (email allowlist, server-side admin client).
 - Draft privacy and terms pages.
 - Adult-only beta. Child chat is disabled until guardian controls, safeguarding and legal checks are complete.
@@ -74,8 +74,8 @@ Add Sara's sign-in email to TEACHER_EMAILS in Vercel (comma-separated). This giv
 ## Current allowances in the SQL migration
 - Free beta: 10 text messages per calendar month.
 - Active paid plan: 300 text messages per month.
-- Active paid plan: up to 40 voice-session credentials per month.
-These are provisional product guardrails. They need to be compared with actual API cost and customer value before setting the public subscription price. A voice session is a connection allowance, not a promise of unlimited minutes.
+- Active paid plan: up to 10 voice session starts per calendar month.
+These are provisional product guardrails. They need to be compared with actual API cost and customer value before setting the public subscription price. The in-app interface ends a voice connection after 10 minutes, but that timer is client-side and can be bypassed; it is not a server-enforced maximum duration.
 
 ## Important pre-launch requirements
 - Replace and legally review the draft privacy notice and terms. Add the legal data controller identity, purposes/legal bases, retention, processors, international transfers, user rights process, support and complaint route.
@@ -86,8 +86,8 @@ These are provisional product guardrails. They need to be compared with actual A
 - Run supervised adult pilot sessions first. Do not claim official Cambridge scoring, recognised certification or guaranteed CEFR progress.
 
 ## Known incomplete items
-- Browser WebRTC voice UI and the server-minted ephemeral session token flow are implemented; verify on supported browsers and with a real paid test account.
-- Voice audio is streamed to OpenAI Realtime; the application does not store voice recordings. There is no separate pronunciation scoring or speech transcript report yet.
+- Browser WebRTC voice UI and a server-side SDP proxy are implemented; no long-lived or ephemeral OpenAI API key is sent to the browser. Verify with supported browsers and a real paid test account.
+- Voice audio is streamed to OpenAI Realtime through the server-created WebRTC call; the application does not store voice recordings. There is no separate pronunciation scoring or speech transcript report yet.
 - Teacher page shows account/usage metadata only; no student transcript monitoring.
 - Pricing amount is intentionally unset pending the user's decision.
 - Stripe webhook needs end-to-end test-mode verification and payment lifecycle review.
