@@ -38,7 +38,7 @@ export async function POST(request:Request){
   const session={
    type:"realtime",
    model:process.env.OPENAI_REALTIME_MODEL??"gpt-realtime-2.1-mini",
-   audio:{output:{voice:"marin"}},
+   audio:{input:{transcription:{model:"gpt-transcribe",language:"en"},turn_detection:{type:"server_vad",threshold:0.5,prefix_padding_ms:300,silence_duration_ms:600}},output:{voice:"marin"}},
    instructions:buildVoiceInstructions(track,level)
   };
   const form=new FormData();
