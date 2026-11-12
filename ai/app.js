@@ -426,11 +426,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     if (session) {
       authCard.hidden = true;
       accountCard.hidden = false;
+      if (sessionModeBadge && !sessionEndsAt) sessionModeBadge.textContent = mode === "young" ? "SAMPLE" : "LIVE AI";
       accountIdentity.textContent = session.user?.email || "Signed in";
       await refreshAccountStatus();
     } else {
       authCard.hidden = false;
       accountCard.hidden = true;
+      if (sessionModeBadge) sessionModeBadge.textContent = "SAMPLE";
       paidPlanConfigured = false;
     }
   }
@@ -691,8 +693,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     if (error) setBillingMessage("Unable to sign out. Please try again.");
     else {
       await stopVoiceSession("Signed out. The microphone is disconnected.");
-      resetSession();
       await updateAuthView(null);
+      resetSession();
     }
   });
   upgradeButton?.addEventListener("click", startCheckout);
