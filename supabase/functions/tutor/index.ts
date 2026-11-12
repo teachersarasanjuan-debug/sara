@@ -92,7 +92,7 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
       }
       return json({ error: "child_mode_requires_guardian_flow", message: "Child mode requires the parent/guardian learner-profile flow and safeguarding review before it can be enabled." }, 403);
     }
-    if (!["A2", "B1", "B2", "C1", "C2"].includes(level)) return json({ error: "invalid_level" }, 400);
+    if (!["A2", "B1", "B2", "C1"].includes(level)) return json({ error: "invalid_level" }, 400);
 
     const messages = Array.isArray(body?.messages) ? body.messages : [];
     if (messages.length < 1 || messages.length > 10) return json({ error: "invalid_message_count" }, 400);
@@ -241,12 +241,18 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
       feedback.reply, feedback.encouragement, feedback.correction ?? "",
       feedback.explanation, feedback.retryPrompt, feedback.nextStep
     ].join("\\n");
-    const outputModRes = await fetch("https://api.openai.com/v1/moderations", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${openAiKey}`, "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(10000),
-      body: JSON.stringify({ model: "omni-moderation-latest", input: moderationText }),
-    });
+    let outputModRes: Response;
+    try {
+      outputModRes = await fetch("https://api.openai.com/v1/moderations", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${openAiKey}`, "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(10000),
+        body: JSON.stringify({ model: "omni-moderation-latest", input: moderationText }),
+      });
+    } catch {
+      await ctx.supabaseAdmin.rpc("refund_ai_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
+      return json({ error: "safety_check_unavailable", message: "The safety check is temporarily unavailable. Your practice credit has been returned." }, 503);
+    }
     if (!outputModRes.ok) {
       await ctx.supabaseAdmin.rpc("refund_ai_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
       return json({ error: "safety_check_unavailable", message: "The safety check is temporarily unavailable. Your practice credit has been returned." }, 503);
