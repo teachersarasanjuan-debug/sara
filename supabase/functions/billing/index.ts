@@ -1,7 +1,7 @@
 import { withSupabase } from "npm:@supabase/server@1";
 
 
-const corsHeaders = (req: Request): HeadersInit => {
+const corsHeaders = (req: Request): Record<string, string> => {
   const origin = req.headers.get("origin");
   const allowed = (Deno.env.get("APP_ALLOWED_ORIGINS") ?? "https://teachersara.es,https://www.teachersara.es")
     .split(",").map((value) => value.trim()).filter(Boolean);
