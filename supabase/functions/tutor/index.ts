@@ -125,14 +125,22 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
     if (!openAiKey || !model) return json({ error: "ai_not_configured", message: "The AI tutor is not connected yet. The sample lesson is still available." }, 503);
 
     // Moderate learner input before generating a response. If moderation is unavailable, fail closed.
-    const modRes = await fetch("https://api.openai.com/v1/moderations", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${openAiKey}`, "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(10000),
-      body: JSON.stringify({ model: "omni-moderation-latest", input: lastUser.content }),
-    });
-    if (!modRes.ok) return json({ error: "safety_check_unavailable", message: "The safety check is temporarily unavailable. Please try again shortly." }, 503);
-    const moderation = await modRes.json();
+    let modRes: Response;
+    try {
+      modRes = await fetch("https://api.openai.com/v1/moderations", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${openAiKey}`, "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(10000),
+        body: JSON.stringify({ model: "omni-moderation-latest", input: lastUser.content }),
+      });
+    } catch {
+      return json({ error: "safety_check_unavailable", message: "The safety check timed out. No practice credit was used; please try again." }, 503);
+    }
+    if (!modRes.ok) return json({ error: "safety_check_unavailable", message: "The safety check is temporarily unavailable. No practice credit was used; please try again shortly." }, 503);
+    let moderation: any;
+    try { moderation = await modRes.json(); } catch {
+      return json({ error: "safety_check_unavailable", message: "The safety check returned an invalid response. No practice credit was used." }, 503);
+    }
     if (moderation?.results?.[0]?.flagged === true) {
       return json({ error: "message_needs_review", message: "Let's keep our practice safe and respectful. Please try a different example." }, 422);
     }
@@ -224,7 +232,11 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
       return json({ error: "ai_request_failed", message: "I couldn't complete that response. Your practice credit has been returned. Please try again." }, 502);
     }
 
-    const result = await aiRes.json();
+    let result: any;
+    try { result = await aiRes.json(); } catch {
+      await ctx.supabaseAdmin.rpc("refund_ai_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
+      return json({ error: "invalid_ai_feedback", message: "The tutor returned an unreadable response. Your practice credit has been returned." }, 502);
+    }
     const rawFeedback = extractOutputText(result);
     let feedback: any;
     try { feedback = JSON.parse(rawFeedback); } catch { feedback = null; }
@@ -269,7 +281,11 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
       await ctx.supabaseAdmin.rpc("refund_ai_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
       return json({ error: "safety_check_unavailable", message: "The safety check is temporarily unavailable. Your practice credit has been returned." }, 503);
     }
-    const outputModeration = await outputModRes.json();
+    let outputModeration: any;
+    try { outputModeration = await outputModRes.json(); } catch {
+      await ctx.supabaseAdmin.rpc("refund_ai_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
+      return json({ error: "safety_check_unavailable", message: "The final safety check returned an invalid response. Your practice credit has been returned." }, 503);
+    }
     if (outputModeration?.results?.[0]?.flagged === true) {
       await ctx.supabaseAdmin.rpc("refund_ai_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
       return json({ error: "response_needs_review", message: "The tutor response needs a safety review. Your practice credit has been returned." }, 502);
