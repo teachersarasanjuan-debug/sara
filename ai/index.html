@@ -114,6 +114,14 @@
             <button class="button light" id="manage-billing-button" type="button" hidden>Manage billing</button>
             <button class="account-signout" id="sign-out-button" type="button">Sign out</button>
           </div>
+          <div class="voice-controls" id="voice-controls" hidden>
+            <div><strong>Live speaking practice</strong><small>Paid plan · short sessions · microphone required</small></div>
+            <div class="voice-actions">
+              <button class="button light" id="voice-start-button" type="button">Start speaking <span>🎙</span></button>
+              <button class="button voice-stop" id="voice-stop-button" type="button" hidden>End session</button>
+            </div>
+            <p class="voice-status" id="voice-status" role="status">Voice practice is available when enabled on your plan.</p>
+          </div>
           <p class="billing-note" id="billing-note">No payment is taken until you choose a paid plan and complete Stripe Checkout.</p>
         </div>
       </div>
