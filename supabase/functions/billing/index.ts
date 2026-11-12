@@ -62,7 +62,7 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
       const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString().slice(0, 10);
       const [{ data: subscription }, { data: usage }, { data: voiceUsage }] = await Promise.all([
         ctx.supabase.from("subscriptions").select("status,plan_key,current_period_end,cancel_at_period_end")
-          .eq("user_id", userId).order("current_period_end", { ascending: false }).limit(1).maybeSingle(),
+          .eq("owner_id", userId).order("current_period_end", { ascending: false }).limit(1).maybeSingle(),
         ctx.supabaseAdmin.from("ai_usage_monthly").select("request_count")
           .eq("user_id", userId).eq("month_start", monthStart).maybeSingle(),
         ctx.supabaseAdmin.from("ai_voice_usage_monthly").select("session_count")
@@ -109,7 +109,7 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
       if (!priceId || !stripeKey) return json({ error: "billing_not_configured", message: "Paid plans are not available yet. No payment can be taken until the plan is configured." }, 503);
 
       const { data: activeSub } = await ctx.supabase.from("subscriptions").select("stripe_subscription_id,status")
-        .eq("user_id", userId).in("status", ["active", "trialing", "past_due"]).limit(1).maybeSingle();
+        .eq("owner_id", userId).in("status", ["active", "trialing", "past_due"]).limit(1).maybeSingle();
       if (activeSub) return json({ error: "already_subscribed", message: "You already have a subscription. Use Manage billing instead." }, 409);
 
       let { data: customer } = await ctx.supabaseAdmin.from("billing_customers")
