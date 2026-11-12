@@ -1,0 +1,13 @@
+project_id = "zyvjemwhrvkdpnckigfx"
+
+[functions.tutor]
+verify_jwt = false
+
+[functions.billing]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.realtime-token]
+verify_jwt = false

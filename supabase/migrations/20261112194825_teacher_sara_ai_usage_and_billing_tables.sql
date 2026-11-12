@@ -1,0 +1,3 @@
+-- This migration version was recorded twice during initial setup.
+-- The first usage/billing migration already creates the tables and RPC functions.
+-- Keep this version as an idempotent no-op to match the remote migration history.
