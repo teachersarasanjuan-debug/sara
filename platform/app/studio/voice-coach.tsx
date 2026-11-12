@@ -32,7 +32,7 @@ export default function VoiceCoach({canUse}:{canUse:boolean}){
    const ephemeralKey=tokenData.value??tokenData.client_secret?.value;
    if(typeof ephemeralKey!=="string")throw new Error("The voice service did not return a temporary session credential.");
    pc=new RTCPeerConnection();pcRef.current=pc;
-   const audio=new Audio();audio.autoplay=true;audio.playsInline=true;audioRef.current=audio;
+   const audio=new Audio();audio.autoplay=true;audioRef.current=audio;
    pc.ontrack=event=>{audio.srcObject=event.streams[0];audio.play().catch(()=>setMessage("Voice connected. Tap the page once if you cannot hear the coach."));};
    stream.getTracks().forEach(track=>pc?.addTrack(track,stream));
    const channel=pc.createDataChannel("oai-events");
@@ -52,7 +52,7 @@ export default function VoiceCoach({canUse}:{canUse:boolean}){
    const offer=await pc.createOffer();
    await pc.setLocalDescription(offer);
    const sdpResponse=await fetch("https://api.openai.com/v1/realtime/calls",{
-    method:"POST",body:offer.sdp,
+    method:"POST",body:offer.sdp??"",
     headers:{"Authorization":"Bearer "+ephemeralKey,"Content-Type":"application/sdp"}
    });
    const answerText=await sdpResponse.text();
