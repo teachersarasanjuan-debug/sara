@@ -181,6 +181,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 
   function selectMode(next) {
     mode = next;
+    if (levelRating) levelRating.hidden = mode === "young";
     cards.forEach(card => {
       const active = card.dataset.mode === mode;
       card.classList.toggle("active", active);
