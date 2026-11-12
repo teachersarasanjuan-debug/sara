@@ -332,8 +332,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
         const amount = new Intl.NumberFormat("es-ES", { style: "currency", currency: String(p.currency || "EUR").toUpperCase() })
           .format(Number(p.amount || 0) / 100);
         upgradeButton.textContent = "Upgrade · " + amount + " / " + (p.interval === "year" ? "year" : "month") + " →";
-        paidPlanConfigured = true;
-        upgradeButton.hidden = !!statusData?.paid;
+        const needsPaymentAttention = ["past_due", "unpaid"].includes(statusData?.subscription?.status);
+        paidPlanConfigured = !statusData?.paid && !needsPaymentAttention;
+        upgradeButton.hidden = !paidPlanConfigured;
       }
     } catch (error) {
       setBillingMessage("We couldn't refresh your account details. Your access hasn't been changed.");
