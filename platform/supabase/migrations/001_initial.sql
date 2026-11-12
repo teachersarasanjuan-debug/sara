@@ -1,5 +1,8 @@
--- Teacher Sara AI: adult-beta profiles, quotas and RLS.
--- Run in the Supabase SQL editor. Do not run against an existing production database without review.
+-- Teacher Sara AI: adult-beta profiles, RLS and server-only usage quotas.
+-- Run in the Supabase SQL Editor in a NEW project before deployment.
+-- Quota RPC functions accept a user UUID and are executable only by service_role.
+
+create extension if not exists pgcrypto;
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -38,76 +41,78 @@ for each row execute procedure public.handle_new_user();
 
 alter table public.profiles enable row level security;
 revoke all on public.profiles from anon;
-grant select on public.profiles to authenticated;\ngrant all on public.profiles to service_role;
+grant select on public.profiles to authenticated;
+grant all on public.profiles to service_role;
 
 drop policy if exists "Read own profile only" on public.profiles;
 create policy "Read own profile only" on public.profiles
 for select to authenticated using (auth.uid()=id);
 
--- No direct client writes are allowed to billing, plan, role or quota fields.
+-- Client users cannot directly change subscription, quotas, role or billing fields.
 revoke insert,update,delete on public.profiles from anon,authenticated;
 
-create or replace function public.consume_ai_credit()
+create or replace function public.consume_ai_credit(p_user_id uuid)
 returns table(allowed boolean,remaining integer,reason text,plan text)
 language plpgsql security definer set search_path = ''
 as $$
-declare uid uuid := auth.uid(); p public.profiles%rowtype; lim integer;
+declare p public.profiles%rowtype; lim integer;
 begin
- if uid is null then return query select false,0,'not_authenticated'::text,'free'::text; return; end if;
- select * into p from public.profiles where id=uid for update;
+ if p_user_id is null then return query select false,0,'missing_user'::text,'free'::text; return; end if;
+ select * into p from public.profiles where id=p_user_id for update;
  if not found then return query select false,0,'profile_missing'::text,'free'::text; return; end if;
  if p.usage_month < date_trunc('month',now())::date then p.monthly_used:=0; end if;
  lim:=case when p.plan='pro' and p.subscription_status in ('active','trialing') then 300 else 10 end;
  if p.monthly_used>=lim then return query select false,0,'monthly_limit_reached'::text,p.plan; return; end if;
- update public.profiles set monthly_used=p.monthly_used+1,monthly_limit=lim,usage_month=date_trunc('month',now())::date,updated_at=now() where id=uid;
+ update public.profiles set monthly_used=p.monthly_used+1,monthly_limit=lim,usage_month=date_trunc('month',now())::date,updated_at=now() where id=p_user_id;
  return query select true,lim-(p.monthly_used+1),'ok'::text,p.plan;
 end;
 $$;
 
-create or replace function public.refund_ai_credit()
+create or replace function public.refund_ai_credit(p_user_id uuid)
 returns void language plpgsql security definer set search_path = ''
 as $$
 begin
  update public.profiles set monthly_used=greatest(monthly_used-1,0),updated_at=now()
- where id=auth.uid() and usage_month=date_trunc('month',now())::date;
+ where id=p_user_id and usage_month=date_trunc('month',now())::date;
 end;
 $$;
 
-create or replace function public.consume_voice_credit()
+create or replace function public.consume_voice_credit(p_user_id uuid)
 returns table(allowed boolean,remaining integer,reason text)
 language plpgsql security definer set search_path = ''
 as $$
-declare uid uuid:=auth.uid(); p public.profiles%rowtype; lim integer:=10;
+declare p public.profiles%rowtype; lim integer:=10;
 begin
- if uid is null then return query select false,0,'not_authenticated'::text; return; end if;
- select * into p from public.profiles where id=uid for update;
+ if p_user_id is null then return query select false,0,'missing_user'::text; return; end if;
+ select * into p from public.profiles where id=p_user_id for update;
  if not found or p.plan<>'pro' or p.subscription_status not in ('active','trialing') then
   return query select false,0,'paid_membership_required'::text; return;
  end if;
  if p.voice_usage_month<date_trunc('month',now())::date then p.voice_sessions_used:=0; end if;
  if p.voice_sessions_used>=lim then return query select false,0,'monthly_voice_limit_reached'::text; return; end if;
- update public.profiles set voice_sessions_used=p.voice_sessions_used+1,voice_usage_month=date_trunc('month',now())::date,updated_at=now() where id=uid;
+ update public.profiles set voice_sessions_used=p.voice_sessions_used+1,voice_usage_month=date_trunc('month',now())::date,updated_at=now() where id=p_user_id;
  return query select true,lim-(p.voice_sessions_used+1),'ok'::text;
 end;
 $$;
 
-create or replace function public.refund_voice_credit()
+create or replace function public.refund_voice_credit(p_user_id uuid)
 returns void language plpgsql security definer set search_path = ''
 as $$
 begin
  update public.profiles set voice_sessions_used=greatest(voice_sessions_used-1,0),updated_at=now()
- where id=auth.uid() and voice_usage_month=date_trunc('month',now())::date;
+ where id=p_user_id and voice_usage_month=date_trunc('month',now())::date;
 end;
 $$;
 
-revoke all on function public.consume_ai_credit() from public,anon;
-revoke all on function public.refund_ai_credit() from public,anon;
-revoke all on function public.consume_voice_credit() from public,anon;
-revoke all on function public.refund_voice_credit() from public,anon;
-grant execute on function public.consume_ai_credit() to authenticated;
-grant execute on function public.refund_ai_credit() to authenticated;
-grant execute on function public.consume_voice_credit() to authenticated;
-grant execute on function public.refund_voice_credit() to authenticated;
+revoke all on function public.consume_ai_credit(uuid) from public,anon,authenticated;
+revoke all on function public.refund_ai_credit(uuid) from public,anon,authenticated;
+revoke all on function public.consume_voice_credit(uuid) from public,anon,authenticated;
+revoke all on function public.refund_voice_credit(uuid) from public,anon,authenticated;
+grant execute on function public.consume_ai_credit(uuid) to service_role;
+grant execute on function public.refund_ai_credit(uuid) to service_role;
+grant execute on function public.consume_voice_credit(uuid) to service_role;
+grant execute on function public.refund_voice_credit(uuid) to service_role;
 
--- Teacher overview uses the service role only after email allowlisting in the server.
--- Never expose SUPABASE_SERVICE_ROLE_KEY to a browser or commit it to Git.
+-- After Sara creates her account and confirms her login email, promote only that account:
+-- update public.profiles set role='teacher' where email='SARA_LOGIN_EMAIL';
+-- Note: this starter schema intentionally does not let client users set a teacher role.
