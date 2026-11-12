@@ -84,6 +84,11 @@ export async function POST(request:Request){
   const outputCheck=await ai.moderations.create({model:moderationModel,input:moderationPayload});
   const unsafe=!!outputCheck.results[0]?.flagged;
 
+  const skillNote=unsafe?"":typeof result.skill_note==="string"?result.skill_note.trim().slice(0,300):"";
+  if(!unsafe&&skillNote){
+   const {error:noteError}=await admin.rpc("save_learning_note",{p_user_id:auth.user.id,p_track:track,p_scenario:scenario,p_level:level,p_note:skillNote});
+   if(noteError)console.error("Optional learning note was not saved:",noteError.message);
+  }
   const payload={
    reply:unsafe?"Let's keep our practice focused on a safe, respectful English-learning topic. Please try a different example.":result.reply,
    correction:unsafe?{original:"",improved:"",why:""}:{
@@ -92,7 +97,7 @@ export async function POST(request:Request){
     why:typeof result.correction?.why==="string"?result.correction.why.slice(0,700):""
    },
    retryPrompt:unsafe?"":typeof result.retry_prompt==="string"?result.retry_prompt.slice(0,500):"",
-   skillNote:unsafe?"":typeof result.skill_note==="string"?result.skill_note.slice(0,300):"",
+   skillNote,
    remaining:q.remaining
   };
   creditConsumed=false;
