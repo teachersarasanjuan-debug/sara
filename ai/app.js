@@ -314,10 +314,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
         paidPlanConfigured = statusData.checkoutConfigured === true && !statusData.paid;
         upgradeButton.hidden = !paidPlanConfigured;
         manageBillingButton.hidden = !statusData.paid;
-        if (statusData.paid) {
+        if (!statusData.aiConfigured) {
+          setBillingMessage("Your account is connected, but the live AI tutor is waiting for its secure server key. The sample lesson still works; no payment can be taken.");
+        } else if (statusData.paid) {
           setBillingMessage("Your subscription is active. You can manage or cancel it through Stripe's secure billing portal.");
         } else if (!statusData.checkoutConfigured) {
-          setBillingMessage("The paid plan will appear here after Teacher Sara sets the price and connects Stripe. No payment can be taken yet.");
+          setBillingMessage("The live tutor is configured for the free allowance. Paid checkout will appear after the plan price is approved and Stripe is connected.");
         }
       }
       if (!planError && planData?.configured && Array.isArray(planData.plans) && planData.plans.length) {
