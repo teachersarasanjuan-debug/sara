@@ -51,6 +51,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
   const authEmail = document.getElementById("auth-email");
   const authPassword = document.getElementById("auth-password");
   const authName = document.getElementById("auth-name");
+  const adultConsent = document.getElementById("adult-consent");
   const authStatus = document.getElementById("auth-status");
   const signInButton = document.getElementById("sign-in-button");
   const signUpButton = document.getElementById("sign-up-button");
@@ -376,6 +377,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     const password = authPassword.value;
     const displayName = authName.value.trim();
     if (!email || !password) return setAuthMessage("Enter your email address and choose a password.", true);
+    if (!adultConsent?.checked) return setAuthMessage("This private pilot is for adults only. Please confirm that you are 18 or older.", true);
     if (password.length < 8) return setAuthMessage("Use a password with at least 8 characters.", true);
     signUpButton.disabled = true;
     try {
