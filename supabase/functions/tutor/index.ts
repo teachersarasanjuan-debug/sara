@@ -86,13 +86,18 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
 
     const messages = Array.isArray(body?.messages) ? body.messages : [];
     if (messages.length < 1 || messages.length > 10) return json({ error: "invalid_message_count" }, 400);
-    const safeMessages = messages.map((m: any) => {
-      if (!m || !["user", "assistant"].includes(m.role) || typeof m.content !== "string") {
-        throw new Error("invalid_message");
-      }
-      if (m.content.length > 2500) throw new Error("message_too_long");
-      return { role: m.role, content: m.content };
-    });
+    let safeMessages: { role: string; content: string }[];
+    try {
+      safeMessages = messages.map((m: any) => {
+        if (!m || !["user", "assistant"].includes(m.role) || typeof m.content !== "string") {
+          throw new Error("invalid_message");
+        }
+        if (m.content.length > 2500 || m.content.trim().length === 0) throw new Error("invalid_message_length");
+        return { role: m.role, content: m.content.trim() };
+      });
+    } catch {
+      return json({ error: "invalid_message", message: "One of the messages is invalid or too long." }, 400);
+    }
     const lastUser = [...safeMessages].reverse().find((m: any) => m.role === "user");
     if (!lastUser) return json({ error: "missing_user_message" }, 400);
 
@@ -152,11 +157,15 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
     if (!aiRes.ok) {
       const detail = await aiRes.text();
       console.error("OpenAI response failed", aiRes.status, detail.slice(0, 500));
-      return json({ error: "ai_request_failed", message: "I couldn't complete that response. Please try again." }, 502);
+      await ctx.supabaseAdmin.rpc("refund_ai_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
+      return json({ error: "ai_request_failed", message: "I couldn't complete that response. Your practice credit has been returned. Please try again." }, 502);
     }
     const result = await aiRes.json();
     const reply = extractOutputText(result);
-    if (!reply) return json({ error: "empty_ai_response", message: "I didn't receive a useful response. Please try again." }, 502);
+    if (!reply) {
+      await ctx.supabaseAdmin.rpc("refund_ai_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
+      return json({ error: "empty_ai_response", message: "I didn't receive a useful response. Your practice credit has been returned. Please try again." }, 502);
+    }
 
     // No prompts, transcripts or audio are stored. Only the aggregate monthly request count is kept.
     return json({
