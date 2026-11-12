@@ -287,7 +287,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
         level: level.value,
         messages: conversation.slice(-10),
         sessionId: activeSessionId,
-        durationSeconds: sessionStartedAt ? Math.min(7200, Math.floor((Date.now() - sessionStartedAt) / 1000)) : 0,
         selfRating
       }
     });
