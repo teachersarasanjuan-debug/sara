@@ -9,7 +9,8 @@ export async function POST(request:Request){
  if(!process.env.STRIPE_PRICE_ID_MONTHLY)return NextResponse.json({error:"Paid checkout is not configured. A product and monthly EUR price must be created in Stripe first."},{status:503});
  const base=process.env.NEXT_PUBLIC_APP_URL;if(!base)return NextResponse.json({error:"Application URL is not configured."},{status:503});
  try{
-  const {data:profile}=await auth.supabase.from("profiles").select("stripe_customer_id,subscription_status").eq("id",auth.user.id).maybeSingle();\n  if(profile?.subscription_status==="active"||profile?.subscription_status==="trialing")return NextResponse.json({error:"You already have an active membership. Use Manage subscription instead."},{status:409});
+  const {data:profile}=await auth.supabase.from("profiles").select("stripe_customer_id,subscription_status").eq("id",auth.user.id).maybeSingle();
+  if(profile?.subscription_status==="active"||profile?.subscription_status==="trialing")return NextResponse.json({error:"You already have an active membership. Use Manage subscription instead."},{status:409});
   const params:Stripe.Checkout.SessionCreateParams={
    mode:"subscription",line_items:[{price:process.env.STRIPE_PRICE_ID_MONTHLY,quantity:1}],
    client_reference_id:auth.user.id,metadata:{user_id:auth.user.id},
