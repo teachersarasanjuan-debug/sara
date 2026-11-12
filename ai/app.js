@@ -40,6 +40,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
   const title = document.getElementById("session-title");
   const goal = document.getElementById("goal-text");
   const level = document.getElementById("level-select");
+  const lengthSelect = document.getElementById("length-select");
+  const sessionTimer = document.getElementById("session-timer");
+  const sessionModeBadge = document.getElementById("session-mode-badge");
+  const levelRating = document.getElementById("level-rating");
+  const levelFeedback = document.getElementById("level-feedback");
   const chatArea = document.getElementById("chat-area");
   const form = document.getElementById("chat-form");
   const input = document.getElementById("message-input");
@@ -72,6 +77,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
   let turn = 0;
   let session = null;
   let conversation = [];
+  let selfRating = "right_level";
+  let activeSessionId = null;
+  let sessionStartedAt = null;
+  let sessionTimerInterval = null;
+  let sessionEndsAt = null;
   let paidPlanConfigured = false;
   let realtimeVoiceEnabled = false;
   let voicePeer = null;
@@ -131,8 +141,47 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     chatArea.scrollTop = chatArea.scrollHeight;
   }
 
+  function setSelfRating(value) {
+    if (!["too_easy", "right_level", "too_difficult"].includes(value)) return;
+    selfRating = value;
+    levelRating?.querySelectorAll("[data-rating]").forEach(button => {
+      const selected = button.dataset.rating === value;
+      button.classList.toggle("selected", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
+    if (levelFeedback) {
+      const messages = { too_easy: "Thanks. The next activity will be a little more demanding.", right_level: "Great. We will keep the practice around this level.", too_difficult: "Thanks. The next activity will use simpler language and more support." };
+      levelFeedback.textContent = (!session || mode === "young")
+        ? "This rating will guide the live tutor once you are signed in."
+        : messages[value];
+    }
+  }
+
+  function updateSessionTimer() {
+    if (!sessionEndsAt || !sessionTimer) return;
+    const remaining = Math.max(0, Math.ceil((sessionEndsAt - Date.now()) / 1000));
+    const minutes = Math.floor(remaining / 60), seconds = remaining % 60;
+    sessionTimer.textContent = minutes + ":" + String(seconds).padStart(2, "0") + " remaining";
+    if (remaining > 0) return;
+    window.clearInterval(sessionTimerInterval); sessionTimerInterval = null;
+    input.disabled = true; send.disabled = true;
+    addMessage("coach", "PRACTICE COMPLETE", "You have reached the end of this practice slot. Review your feedback, then start a fresh session when ready.");
+    const restart = document.createElement("button");
+    restart.type = "button"; restart.className = "button primary start-button"; restart.textContent = "Start another session →";
+    restart.addEventListener("click", () => { resetSession(); startSession(); });
+    chatArea.append(restart); chatArea.scrollTop = chatArea.scrollHeight;
+  }
+
+  function beginSessionClock() {
+    if (sessionTimerInterval) window.clearInterval(sessionTimerInterval);
+    const minutes = Number.parseInt(lengthSelect?.value || "8", 10) || 8;
+    sessionStartedAt = Date.now(); sessionEndsAt = sessionStartedAt + minutes * 60000;
+    updateSessionTimer(); sessionTimerInterval = window.setInterval(updateSessionTimer, 1000);
+  }
+
   function selectMode(next) {
     mode = next;
+    if (levelRating) levelRating.hidden = mode === "young";
     cards.forEach(card => {
       const active = card.dataset.mode === mode;
       card.classList.toggle("active", active);
@@ -153,8 +202,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
   }
 
   function resetSession() {
-    turn = 0;
-    conversation = [];
+    if (sessionTimerInterval) window.clearInterval(sessionTimerInterval);
+    sessionTimerInterval = null; sessionEndsAt = null; sessionStartedAt = null; activeSessionId = null;
+    turn = 0; conversation = [];
+    if (sessionTimer) { const minutes = Number.parseInt(lengthSelect?.value || "8", 10) || 8; sessionTimer.textContent = "Ready · " + minutes + ":00"; }
+    if (sessionModeBadge) sessionModeBadge.textContent = session ? "LIVE AI" : "SAMPLE";
+    setSelfRating("right_level");
     chatArea.innerHTML = "";
     const state = document.createElement("div");
     state.className = "empty-state";
@@ -180,6 +233,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 
   function startSession() {
     chatArea.innerHTML = "";
+    activeSessionId = crypto.randomUUID(); beginSessionClock();
+    if (sessionModeBadge) sessionModeBadge.textContent = mode === "young" || !session ? "SAMPLE" : "LIVE AI";
     conversation = [{ role: "assistant", content: modes[mode].first }];
     addMessage("coach", "TEACHER SARA AI · " + (mode === "young" ? "SAMPLE" : "COACH"), modes[mode].first);
     input.disabled = false;
@@ -231,7 +286,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
       body: {
         track: mode === "cambridge" ? "cambridge" : mode,
         level: level.value,
-        messages: conversation.slice(-10)
+        messages: conversation.slice(-10),
+        sessionId: activeSessionId,
+        selfRating
       }
     });
     if (error) throw new Error(await showFunctionError(error));
@@ -250,8 +307,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
       send.disabled = true;
       addMessage("coach", "TEACHER SARA AI", "Thinking through your answer…");
       const pending = chatArea.lastElementChild;
+      const requestSessionId = activeSessionId;
       try {
         const result = await liveTutorReply();
+        if (requestSessionId !== activeSessionId) return;
+        if (result.sessionId) activeSessionId = result.sessionId;
         if (pending?.parentNode) pending.remove();
         addMessage("coach", "TEACHER SARA AI", result.reply);
         if (result.encouragement) addMessage("coach", "WHAT WORKED", result.encouragement);
@@ -268,22 +328,27 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
           result.correction ? "Correction: " + result.correction + ". " + (result.explanation || "") : "",
           result.retryPrompt ? "Retry: " + result.retryPrompt : "",
           result.nextStep ? "Next step: " + result.nextStep : ""
-        ].filter(Boolean).join("\\n");
+        ].filter(Boolean).join("\n");
         conversation.push({ role: "assistant", content: assistantContext });
         turn += 1;
         await refreshAccountStatus();
       } catch (error) {
-        if (pending?.parentNode) pending.remove();
-        const message = error?.message || "Something went wrong. Please try again.";
-        addMessage("coach", "A QUICK NOTE", message);
-        if (/monthly|allowance|plan|upgrade/i.test(message)) {
-          setBillingMessage(message);
-          upgradeButton.hidden = !paidPlanConfigured;
+        if (requestSessionId === activeSessionId) {
+          if (pending?.parentNode) pending.remove();
+          const message = error?.message || "Something went wrong. Please try again.";
+          addMessage("coach", "A QUICK NOTE", message);
+          if (/monthly|allowance|plan|upgrade/i.test(message)) {
+            setBillingMessage(message);
+            upgradeButton.hidden = !paidPlanConfigured;
+          }
         }
       } finally {
-        input.disabled = false;
-        send.disabled = false;
-        input.focus();
+        if (requestSessionId === activeSessionId) {
+          const practiceExpired = Boolean(sessionEndsAt && Date.now() >= sessionEndsAt);
+          input.disabled = practiceExpired || !sessionStartedAt;
+          send.disabled = practiceExpired || !sessionStartedAt;
+          if (!practiceExpired && sessionStartedAt) input.focus();
+        }
       }
       return;
     }
@@ -361,11 +426,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     if (session) {
       authCard.hidden = true;
       accountCard.hidden = false;
+      if (sessionModeBadge) sessionModeBadge.textContent = mode === "young" ? "SAMPLE" : "LIVE AI";
       accountIdentity.textContent = session.user?.email || "Signed in";
       await refreshAccountStatus();
     } else {
       authCard.hidden = false;
       accountCard.hidden = true;
+      if (sessionModeBadge) sessionModeBadge.textContent = "SAMPLE";
       paidPlanConfigured = false;
     }
   }
@@ -607,6 +674,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
   }
 
   cards.forEach(card => card.addEventListener("click", () => selectMode(card.dataset.mode)));
+  levelRating?.querySelectorAll("[data-rating]").forEach(button => button.addEventListener("click", () => setSelfRating(button.dataset.rating)));
+  lengthSelect?.addEventListener("change", () => {
+    if (!sessionEndsAt && sessionTimer) { const minutes = Number.parseInt(lengthSelect.value || "8", 10) || 8; sessionTimer.textContent = "Ready · " + minutes + ":00"; }
+  });
   form.addEventListener("submit", async event => {
     event.preventDefault();
     const value = input.value;
@@ -623,6 +694,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     else {
       await stopVoiceSession("Signed out. The microphone is disconnected.");
       await updateAuthView(null);
+      resetSession();
     }
   });
   upgradeButton?.addEventListener("click", startCheckout);
@@ -632,7 +704,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 
   if (supabase) {
     supabase.auth.onAuthStateChange((_event, nextSession) => {
-      void updateAuthView(nextSession);
+      // Defer Supabase calls until the auth callback releases its internal lock.
+      window.setTimeout(() => { void updateAuthView(nextSession); }, 0);
     });
     supabase.auth.getSession().then(({ data }) => updateAuthView(data.session));
   } else {

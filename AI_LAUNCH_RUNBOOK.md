@@ -104,6 +104,13 @@ In Authentication > URL Configuration:
 12. Confirm the free allowance and paid allowance are enforced server-side.
 13. Test on mobile and desktop, including a microphone-denied browser.
 14. Complete privacy, consumer terms, VAT/invoicing and safeguarding review before public sale.
+15. Test the 8-, 12- and 15-minute session choices; confirm the countdown expires, disables replies and offers a fresh session.
+16. Select "Too easy", "Just right" and "Too difficult"; confirm the live tutor adjusts the next activity without changing the learner's declared CEFR level.
+17. Continue a live conversation for several replies; confirm it updates one lesson-session record rather than creating one completed record per reply.
+18. Switch practice tracks while a response is pending; confirm the old response does not appear in the new track.
+19. Sign in and out during a test; confirm the badge changes between LIVE AI and SAMPLE and no old response leaks into a new session.
+20. Simulate a moderation timeout or malformed provider response; confirm the service fails safely and no consumed AI credit is lost.
+
 
 ## Commercial settings still to decide
 
