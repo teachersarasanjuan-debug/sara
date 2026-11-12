@@ -59,21 +59,28 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
     if (!userId) return json({ error: "unauthorized" }, 401);
 
     if (action === "status") {
-      const [{ data: subscription }, { data: usage }] = await Promise.all([
+      const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString().slice(0, 10);
+      const [{ data: subscription }, { data: usage }, { data: voiceUsage }] = await Promise.all([
         ctx.supabase.from("subscriptions").select("status,plan_key,current_period_end,cancel_at_period_end")
           .eq("user_id", userId).order("current_period_end", { ascending: false }).limit(1).maybeSingle(),
         ctx.supabaseAdmin.from("ai_usage_monthly").select("request_count")
-          .eq("user_id", userId).eq("month_start", new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString().slice(0, 10)).maybeSingle(),
+          .eq("user_id", userId).eq("month_start", monthStart).maybeSingle(),
+        ctx.supabaseAdmin.from("ai_voice_usage_monthly").select("session_count")
+          .eq("user_id", userId).eq("month_start", monthStart).maybeSingle(),
       ]);
       const active = !!subscription && ["active", "trialing"].includes(subscription.status) &&
         (!subscription.current_period_end || new Date(subscription.current_period_end).getTime() > Date.now());
       const limit = Number(Deno.env.get(active ? "AI_PAID_MONTHLY_REQUEST_LIMIT" : "AI_FREE_MONTHLY_REQUEST_LIMIT") ?? (active ? "500" : "10"));
+      const voiceEnabled = active && Deno.env.get("ENABLE_REALTIME_VOICE") === "true";
+      const voiceLimit = Number(Deno.env.get("AI_VOICE_MONTHLY_SESSION_LIMIT") ?? "12");
       return json({
         authenticated: true,
         email: userEmail ?? null,
         subscription: subscription ?? null,
         paid: active,
         usage: { used: usage?.request_count ?? 0, limit },
+        voiceEnabled,
+        voiceUsage: { used: voiceUsage?.session_count ?? 0, limit: voiceLimit },
         checkoutConfigured: !!Deno.env.get("STRIPE_PRICE_INDIVIDUAL_MONTHLY") && !!Deno.env.get("STRIPE_SECRET_KEY"),
       });
     }
