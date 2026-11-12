@@ -113,6 +113,5 @@ grant execute on function public.refund_ai_credit(uuid) to service_role;
 grant execute on function public.consume_voice_credit(uuid) to service_role;
 grant execute on function public.refund_voice_credit(uuid) to service_role;
 
--- After Sara creates her account and confirms her login email, promote only that account:
--- update public.profiles set role='teacher' where email='SARA_LOGIN_EMAIL';
--- Note: this starter schema intentionally does not let client users set a teacher role.
+-- Configure the server-only TEACHER_EMAILS environment variable to allow Sara's verified login email to access /teacher.
+-- No client-editable teacher-role field is present in this starter schema.
