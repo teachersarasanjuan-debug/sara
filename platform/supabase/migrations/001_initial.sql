@@ -77,7 +77,7 @@ create or replace function public.consume_voice_credit()
 returns table(allowed boolean,remaining integer,reason text)
 language plpgsql security definer set search_path = ''
 as $$
-declare uid uuid:=auth.uid(); p public.profiles%rowtype; lim integer:=40;
+declare uid uuid:=auth.uid(); p public.profiles%rowtype; lim integer:=10;
 begin
  if uid is null then return query select false,0,'not_authenticated'::text; return; end if;
  select * into p from public.profiles where id=uid for update;
