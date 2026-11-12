@@ -38,7 +38,7 @@ for each row execute procedure public.handle_new_user();
 
 alter table public.profiles enable row level security;
 revoke all on public.profiles from anon;
-grant select on public.profiles to authenticated;
+grant select on public.profiles to authenticated;\ngrant all on public.profiles to service_role;
 
 drop policy if exists "Read own profile only" on public.profiles;
 create policy "Read own profile only" on public.profiles
