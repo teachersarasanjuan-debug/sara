@@ -1,4 +1,5 @@
 import {NextResponse} from "next/server";
+import Stripe from "stripe";
 import {getCurrentUser} from "@/lib/auth";
 import {getStripe} from "@/lib/stripe";
 import {sameOrigin} from "@/lib/security";
@@ -9,7 +10,7 @@ export async function POST(request:Request){
  const base=process.env.NEXT_PUBLIC_APP_URL;if(!base)return NextResponse.json({error:"Application URL is not configured."},{status:503});
  try{
   const {data:profile}=await auth.supabase.from("profiles").select("stripe_customer_id").eq("id",auth.user.id).maybeSingle();
-  const params:Parameters<ReturnType<typeof getStripe>["checkout"]["sessions"]["create"]>[0]={
+  const params:Stripe.Checkout.SessionCreateParams={
    mode:"subscription",line_items:[{price:process.env.STRIPE_PRICE_ID_MONTHLY,quantity:1}],
    client_reference_id:auth.user.id,metadata:{user_id:auth.user.id},
    subscription_data:{metadata:{user_id:auth.user.id}},
