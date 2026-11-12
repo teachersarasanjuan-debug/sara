@@ -301,6 +301,7 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
       teacher_summary: feedback.teacherSummary.slice(0, 500),
       next_step: feedback.nextStep.slice(0, 300),
       self_rating: selfRating,
+      duration_seconds: 0,
       completed_at: new Date().toISOString()
     };
     // One database record represents the whole chat session, not one row per learner turn.
