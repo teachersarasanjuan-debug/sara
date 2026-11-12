@@ -14,8 +14,14 @@ export async function POST(request:Request){
  const auth=await getCurrentUser();
  if(!auth)return NextResponse.json({error:"Please sign in first."},{status:401});
 
+ const declaredLength=Number(request.headers.get("content-length")??"0");
+ if(declaredLength>18000)return NextResponse.json({error:"This request is too large. Please shorten your message or start a new practice."},{status:413});
  let body:{track?:string;level?:string;message?:string;history?:HistoryItem[]};
- try{body=await request.json();}catch{return NextResponse.json({error:"Invalid request."},{status:400});}
+ try{
+  const raw=await request.text();
+  if(raw.length>18000)return NextResponse.json({error:"This request is too large. Please shorten your message or start a new practice."},{status:413});
+  body=JSON.parse(raw);
+ }catch{return NextResponse.json({error:"Invalid request."},{status:400});}
 
  const message=typeof body.message==="string"?body.message.trim():"";
  const track=body.track as Track;
@@ -44,7 +50,8 @@ export async function POST(request:Request){
 
   const ai=getOpenAI();
   const moderationModel=process.env.OPENAI_MODERATION_MODEL??"omni-moderation-latest";
-  const inputCheck=await ai.moderations.create({model:moderationModel,input:message});
+  const learnerContext=[...history.filter(item=>item.role==="user").map(item=>item.content),message].join("\\n");
+  const inputCheck=await ai.moderations.create({model:moderationModel,input:learnerContext});
   if(inputCheck.results[0]?.flagged){
    await admin.rpc("refund_ai_credit",{p_user_id:auth.user.id});
    creditConsumed=false;
