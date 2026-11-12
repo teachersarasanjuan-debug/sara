@@ -59,7 +59,7 @@ export async function POST(request:Request){
   }
 
   const response=await ai.responses.create({
-   model:process.env.OPENAI_MODEL??"gpt-4.1-mini",
+   model:process.env.OPENAI_MODEL??"gpt-5.4-mini",
    instructions:buildCoachInstructions(track,level),
    input:[...history,{role:"user",content:message}],
    max_output_tokens:450,
