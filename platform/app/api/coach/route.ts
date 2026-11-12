@@ -2,7 +2,7 @@ import {NextResponse} from "next/server";
 import {getCurrentUser} from "@/lib/auth";
 import {createAdminClient} from "@/lib/supabase/admin";
 import {getOpenAI} from "@/lib/openai";
-import {buildCoachInstructions,type Track} from "@/lib/coach-prompts";
+import {buildCoachInstructions,isValidScenario,type Track,type Scenario} from "@/lib/coach-prompts";
 import {sameOrigin} from "@/lib/security";
 
 export const runtime="nodejs";
@@ -16,7 +16,7 @@ export async function POST(request:Request){
 
  const declaredLength=Number(request.headers.get("content-length")??"0");
  if(declaredLength>18000)return NextResponse.json({error:"This request is too large. Please shorten your message or start a new practice."},{status:413});
- let body:{track?:string;level?:string;message?:string;history?:HistoryItem[]};
+ let body:{track?:string;level?:string;message?:string;scenario?:string;history?:HistoryItem[]};
  try{
   const raw=await request.text();
   if(raw.length>18000)return NextResponse.json({error:"This request is too large. Please shorten your message or start a new practice."},{status:413});
@@ -25,9 +25,9 @@ export async function POST(request:Request){
 
  const message=typeof body.message==="string"?body.message.trim():"";
  const track=body.track as Track;
- const level=body.level??"B1";
+ const level=body.level??"B1";\n const scenario=(body.scenario??(track==="business"?"project-update":"personal-response")) as Scenario;
  if(track==="young")return NextResponse.json({error:"Young learner sessions are not open. Guardian and teacher safeguards must be completed first."},{status:403});
- if(!tracks.includes(track)||!["A2","B1","B2","C1"].includes(level))return NextResponse.json({error:"Unsupported learning path or level."},{status:400});
+ if(!tracks.includes(track)||!["A2","B1","B2","C1"].includes(level)||!isValidScenario(track,scenario))return NextResponse.json({error:"Unsupported learning path, level or lesson scenario."},{status:400});
  if(message.length<2||message.length>1600)return NextResponse.json({error:"Please enter between 2 and 1,600 characters."},{status:400});
 
  const history=Array.isArray(body.history)?body.history.slice(-8):[];
@@ -60,7 +60,7 @@ export async function POST(request:Request){
 
   const response=await ai.responses.create({
    model:process.env.OPENAI_MODEL??"gpt-5.4-mini",
-   instructions:buildCoachInstructions(track,level),
+   instructions:buildCoachInstructions(track,level,scenario),
    input:[...history,{role:"user",content:message}],
    max_output_tokens:450,
    store:false,
