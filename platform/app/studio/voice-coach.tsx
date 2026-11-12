@@ -20,8 +20,7 @@ export default function VoiceCoach({canUse}:{canUse:boolean}){
  }
  useEffect(()=>()=>{releaseMedia();},[]);
  function stop(){
-  releaseMedia();
-  setState("idle");
+  releaseMedia();setState("idle");
   setMessage("Voice session ended. Your microphone has been switched off.");
  }
  async function start(){
@@ -32,19 +31,13 @@ export default function VoiceCoach({canUse}:{canUse:boolean}){
   try{
    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
    streamRef.current=stream;
-   setMessage("Creating your private voice session…");
-   const tokenResponse=await fetch("/api/voice/session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({track,level})});
-   const tokenData=await tokenResponse.json();
-   if(!tokenResponse.ok)throw new Error(tokenData.error??"Could not start voice practice.");
-   const ephemeralKey=tokenData.value??tokenData.client_secret?.value;
-   if(typeof ephemeralKey!=="string")throw new Error("The voice service did not return a temporary session credential.");
    pc=new RTCPeerConnection();pcRef.current=pc;
    const audio=new Audio();audio.autoplay=true;audioRef.current=audio;
    pc.ontrack=event=>{audio.srcObject=event.streams[0];audio.play().catch(()=>setMessage("Voice connected. Tap the page once if you cannot hear the coach."));};
    stream.getTracks().forEach(track=>pc?.addTrack(track,stream));
    const channel=pc.createDataChannel("oai-events");
    channel.addEventListener("open",()=>{
-    setState("live");setMessage("Connected. Speak naturally. This session ends automatically after 10 minutes.");
+    setState("live");setMessage("Connected. Speak naturally. The in-app session will end after 10 minutes.");
     timerRef.current=setTimeout(()=>{releaseMedia();setState("idle");setMessage("Your 10-minute voice session has ended. You can start another session when ready.");},10*60*1000);
    });
    channel.addEventListener("message",event=>{
@@ -52,16 +45,22 @@ export default function VoiceCoach({canUse}:{canUse:boolean}){
     catch{}
    });
    pc.onconnectionstatechange=()=>{
-    if(pc?.connectionState==="failed"||pc?.connectionState==="disconnected"){setState("error");setMessage("The connection was interrupted. End the session and try again.");}
+    if(pc?.connectionState==="failed"||pc?.connectionState==="disconnected"){releaseMedia();setState("error");setMessage("The connection was interrupted. Please start another session.");}
    };
+   setMessage("Creating a secure voice connection through Teacher Sara's server…");
    const offer=await pc.createOffer();await pc.setLocalDescription(offer);
-   const sdpResponse=await fetch("https://api.openai.com/v1/realtime/calls",{
-    method:"POST",body:offer.sdp??"",
-    headers:{"Authorization":"Bearer "+ephemeralKey,"Content-Type":"application/sdp"}
+   const response=await fetch("/api/voice/session",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({track,level,sdp:offer.sdp??""})
    });
-   const answerText=await sdpResponse.text();
-   if(!sdpResponse.ok)throw new Error("Voice connection was rejected. Please try again.");
-   await pc.setRemoteDescription({type:"answer",sdp:answerText});
+   const answer=await response.text();
+   if(!response.ok){
+    let reason="Voice connection was rejected. Please try again.";
+    try{const parsed=JSON.parse(answer) as {error?:string};if(parsed.error)reason=parsed.error;}catch{}
+    throw new Error(reason);
+   }
+   await pc.setRemoteDescription({type:"answer",sdp:answer});
    setMessage("Connecting your microphone and speaker…");
   }catch(error){
    pc?.close();pcRef.current=null;
@@ -75,13 +74,13 @@ export default function VoiceCoach({canUse}:{canUse:boolean}){
    <label className="small">Practice <select value={track} onChange={e=>setTrack(e.target.value as Track)} disabled={state==="live"||state==="connecting"} style={{marginLeft:8,padding:8,borderRadius:8,border:"1px solid #dfe9e2"}}><option value="cambridge">Cambridge-style speaking</option><option value="business">Business English role-play</option></select></label>
    <label className="small">Level <select value={level} onChange={e=>setLevel(e.target.value)} disabled={state==="live"||state==="connecting"} style={{marginLeft:8,padding:8,borderRadius:8,border:"1px solid #dfe9e2"}}><option>A2</option><option>B1</option><option>B2</option><option>C1</option></select></label>
   </div>
-  <div className="notice">{state==="live"?"Your coach is listening. Take your time and speak in complete thoughts.":state==="connecting"?"Setting up a secure audio connection.":canUse?"Paid allowance: up to 10 voice sessions per month, with a 10-minute in-app session limit. Audio streams to OpenAI; this app does not save recordings.":"Voice practice requires an active paid membership."}</div>
+  <div className="notice">{state==="live"?"Your coach is listening. Take your time and speak in complete thoughts.":state==="connecting"?"Setting up a secure audio connection.":canUse?"Paid allowance: up to 10 voice session starts per month, with a 10-minute in-app session target. Audio streams through OpenAI; this app does not save recordings.":"Voice practice requires an active paid membership."}</div>
   <div className="row" style={{marginTop:14}}>
    {state==="live"||state==="connecting"?<button className="btn" onClick={stop}>End session</button>:<button className="btn" onClick={start} disabled={!canUse}>Start voice practice</button>}
    {state==="connecting"&&<span className="small">Connecting…</span>}
    {state==="live"&&<span className="success">● Microphone connected</span>}
   </div>
   {message&&<p className={state==="error"?"error":"small"} style={{marginTop:10}}>{message}</p>}
-  <p className="small" style={{marginTop:12}}>Use headphones where possible. Do not speak personal, health, financial or confidential information. Browser microphone permission is required.</p>
+  <p className="small" style={{marginTop:12}}>Use headphones where possible. Do not speak personal, health, financial or confidential information. Browser microphone permission is required. The 10-minute timer is an in-app limit, not a server-side forced disconnect.</p>
  </section>;
 }
