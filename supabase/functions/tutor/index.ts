@@ -120,7 +120,7 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
     const { data: subscription, error: subscriptionError } = await ctx.supabase
       .from("subscriptions")
       .select("status,current_period_end,plan_key")
-      .eq("user_id", userId)
+      .eq("owner_id", userId)
       .in("status", ["active", "trialing"])
       .order("current_period_end", { ascending: false })
       .limit(1)
