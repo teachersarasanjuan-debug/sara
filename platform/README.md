@@ -87,7 +87,7 @@ These are provisional product guardrails. They need to be compared with actual A
 
 ## Known incomplete items
 - Browser WebRTC voice UI and a server-side SDP proxy are implemented; no long-lived or ephemeral OpenAI API key is sent to the browser. Verify with supported browsers and a real paid test account.
-- Voice audio is streamed to OpenAI Realtime through the server-created WebRTC call; the application does not store voice recordings. There is no separate pronunciation scoring or speech transcript report yet.
+- Voice audio is streamed to OpenAI Realtime through the server-created WebRTC call. The live UI shows approximate user/coach text transcripts in page memory only; the application does not store audio recordings or voice transcripts. Transcription can mishear the learner, is not a pronunciation score, and must not be treated as an official assessment.
 - Teacher page shows account/usage metadata only; no student transcript monitoring.
 - Pricing amount is intentionally unset pending the user's decision.
 - Stripe webhook needs end-to-end test-mode verification and payment lifecycle review.
