@@ -57,16 +57,16 @@ Connect the Supabase, Vercel and Stripe apps to the working environment. The use
 
 ### E. Stripe
 1. Create a product for Teacher Sara AI membership.
-2. Decide the EUR recurring monthly price, VAT presentation, included usage, trial policy and cancellation/refund wording.
-3. Create the recurring monthly Price and set STRIPE_PRICE_ID_MONTHLY.
-4. Configure the webhook endpoint https://learn.teachersara.es/api/billing/webhook for:
+2. Decide the EUR recurring monthly price, VAT presentation, included usage, trial policy and cancellation/refund wording. Use an active monthly EUR recurring Price; checkout rejects another currency or interval.\n3. Decide whether Stripe Tax is enabled. If enabled and Stripe Tax registrations/settings are configured, set STRIPE_AUTOMATIC_TAX=true in Vercel; otherwise keep it false and obtain advice on VAT handling before public sale.
+4. Create the recurring monthly Price and set STRIPE_PRICE_ID_MONTHLY.
+5. Configure the webhook endpoint https://learn.teachersara.es/api/billing/webhook for:
    - checkout.session.completed
    - customer.subscription.updated
    - customer.subscription.deleted
    - invoice.payment_failed
-5. Put the webhook signing secret in STRIPE_WEBHOOK_SECRET.
-6. Configure the Stripe Customer Portal.
-7. Test checkout, successful payment, failed payment, cancellation, renewal, webhook replay and portal in Stripe test mode before live mode.
+6. Put the webhook signing secret in STRIPE_WEBHOOK_SECRET.
+7. Configure the Stripe Customer Portal.
+8. Test checkout, successful payment, failed payment, cancellation, renewal, webhook replay and portal in Stripe test mode before live mode.
 
 ### F. Teacher access
 Add Sara's sign-in email to TEACHER_EMAILS in Vercel (comma-separated). This gives access to the teacher dashboard. Learners must independently opt in before their short general skill notes appear there. The teacher page uses the service-role key server-side; the key is never sent to the browser.
