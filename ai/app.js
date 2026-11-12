@@ -1,3 +1,5 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
+
 (() => {
   const modes = {
     cambridge: {
@@ -6,10 +8,10 @@
       first: "Let's practise giving a developed speaking answer. Describe a skill you would like to learn and explain why it matters to you. Try to give a reason and a real example.",
       follow: "Good start. Can you add one specific example and connect it to your main reason?",
       retry: "Try again. Use this simple structure: point → reason → example. Aim for two or three connected sentences.",
-      short: "Your idea is clear. To develop a stronger B1/B2 answer, add a reason and a specific example rather than stopping after one sentence."
+      short: "Your idea is clear. To develop a stronger answer, add a reason and a specific example rather than stopping after one sentence."
     },
     young: {
-      title: "Young learner discovery",
+      title: "Young learner discovery · sample only",
       goal: "Use familiar vocabulary to describe something you can see, with a complete sentence.",
       first: "Welcome! Let's explore together. Imagine you are in a park. What can you see? Try one full sentence, such as “I can see a green tree.”",
       follow: "Lovely effort! Can you add a colour or describe what the thing is doing?",
@@ -26,6 +28,14 @@
     }
   };
 
+  const cfg = window.TEACHER_SARA_AI_CONFIG || {};
+  const configured = cfg.configured === true && !!cfg.supabaseUrl && !!cfg.supabasePublishableKey;
+  const supabase = configured
+    ? createClient(cfg.supabaseUrl, cfg.supabasePublishableKey, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+      })
+    : null;
+
   const cards = [...document.querySelectorAll("[data-mode]")];
   const title = document.getElementById("session-title");
   const goal = document.getElementById("goal-text");
@@ -35,27 +45,38 @@
   const input = document.getElementById("message-input");
   const send = document.getElementById("send-button");
   const start = document.getElementById("start-button");
-  const empty = document.getElementById("empty-state");
+  const authCard = document.getElementById("auth-card");
+  const accountCard = document.getElementById("account-card");
+  const authForm = document.getElementById("auth-form");
+  const authEmail = document.getElementById("auth-email");
+  const authPassword = document.getElementById("auth-password");
+  const authName = document.getElementById("auth-name");
+  const authStatus = document.getElementById("auth-status");
+  const signInButton = document.getElementById("sign-in-button");
+  const signUpButton = document.getElementById("sign-up-button");
+  const signOutButton = document.getElementById("sign-out-button");
+  const accountIdentity = document.getElementById("account-identity");
+  const usageCount = document.getElementById("usage-count");
+  const usageFill = document.getElementById("usage-fill");
+  const planLabel = document.getElementById("plan-label");
+  const upgradeButton = document.getElementById("upgrade-button");
+  const manageBillingButton = document.getElementById("manage-billing-button");
+  const billingNote = document.getElementById("billing-note");
+
   let mode = "cambridge";
   let turn = 0;
+  let session = null;
+  let conversation = [];
+  let paidPlanConfigured = false;
 
-  function selectMode(next) {
-    mode = next;
-    cards.forEach(card => {
-      const active = card.dataset.mode === mode;
-      card.classList.toggle("active", active);
-      card.setAttribute("aria-pressed", String(active));
-    });
-    title.textContent = modes[mode].title;
-    goal.textContent = modes[mode].goal;
-    if (mode === "young") {
-      level.innerHTML = '<option value="Pre-A1">Pre-A1 · Starter</option><option value="A1">A1 · Beginner</option><option value="A2">A2 · Elementary</option>';
-    } else if (mode === "business") {
-      level.innerHTML = '<option value="B1">B1 · Intermediate</option><option value="B2">B2 · Upper intermediate</option><option value="C1">C1 · Advanced</option>';
-    } else {
-      level.innerHTML = '<option value="B1">B1 · Intermediate</option><option value="A2">A2 · Elementary</option><option value="B2">B2 · Upper intermediate</option><option value="C1">C1 · Advanced</option>';
-    }
-    resetSession();
+  function setAuthMessage(message, isError = false) {
+    if (!authStatus) return;
+    authStatus.textContent = message;
+    authStatus.style.color = isError ? "#9a4b3e" : "";
+  }
+
+  function setBillingMessage(message) {
+    if (billingNote) billingNote.textContent = message;
   }
 
   function addMessage(kind, label, text) {
@@ -90,8 +111,28 @@
     chatArea.scrollTop = chatArea.scrollHeight;
   }
 
+  function selectMode(next) {
+    mode = next;
+    cards.forEach(card => {
+      const active = card.dataset.mode === mode;
+      card.classList.toggle("active", active);
+      card.setAttribute("aria-pressed", String(active));
+    });
+    title.textContent = modes[mode].title;
+    goal.textContent = modes[mode].goal;
+    if (mode === "young") {
+      level.innerHTML = '<option value="Pre-A1">Pre-A1 · Starter</option><option value="A1">A1 · Beginner</option><option value="A2">A2 · Elementary</option>';
+    } else if (mode === "business") {
+      level.innerHTML = '<option value="B1">B1 · Intermediate</option><option value="B2">B2 · Upper intermediate</option><option value="C1">C1 · Advanced</option>';
+    } else {
+      level.innerHTML = '<option value="B1">B1 · Intermediate</option><option value="A2">A2 · Elementary</option><option value="B2">B2 · Upper intermediate</option><option value="C1">C1 · Advanced</option>';
+    }
+    resetSession();
+  }
+
   function resetSession() {
     turn = 0;
+    conversation = [];
     chatArea.innerHTML = "";
     const state = document.createElement("div");
     state.className = "empty-state";
@@ -101,7 +142,9 @@
     const strong = document.createElement("strong");
     strong.textContent = "Your coach is ready when you are.";
     const p = document.createElement("p");
-    p.textContent = "Start the sample to see a short, structured lesson with a correction and a chance to try again.";
+    p.textContent = mode === "young"
+      ? "This is a sample preview only. Real child accounts are not enabled until parent controls and safeguarding are complete."
+      : "Start a structured lesson with a clear goal, useful feedback and a chance to try again.";
     const button = document.createElement("button");
     button.type = "button";
     button.className = "button primary start-button";
@@ -115,13 +158,21 @@
 
   function startSession() {
     chatArea.innerHTML = "";
-    addMessage("coach", "TEACHER SARA AI · SAMPLE COACH", modes[mode].first);
+    conversation = [{ role: "assistant", content: modes[mode].first }];
+    addMessage("coach", "TEACHER SARA AI · " + (mode === "young" ? "SAMPLE" : "COACH"), modes[mode].first);
     input.disabled = false;
     send.disabled = false;
     input.focus();
+    if (mode === "young") {
+      addMessage("coach", "PARENT & TEACHER SAFETY", "This child activity is a scripted demonstration only. Real child accounts and AI chat are disabled for the pilot.");
+    } else if (session && supabase) {
+      addMessage("coach", "LIVE AI", "Your next response will be handled by the secure Teacher Sara AI service. Your chat is kept in this browser session and is not saved as a transcript.");
+    } else {
+      addMessage("coach", "SAMPLE MODE", "You are using the scripted preview. Sign in after the secure account connection is configured to try live AI practice.");
+    }
   }
 
-  function getSampleFeedback(text) {
+  function sampleCorrection(text) {
     const lower = text.toLowerCase();
     if (/\bi am agree\b/.test(lower)) {
       return { correction: text.replace(/\bi am agree\b/i, "I agree"), explanation: "“Agree” is a verb. We say “I agree”, not “I am agree”." };
@@ -138,11 +189,69 @@
     return null;
   }
 
-  function handleAnswer(text) {
+  async function showFunctionError(error) {
+    if (!error) return "The service could not complete that request. Please try again.";
+    let message = error.message || "The service could not complete that request.";
+    try {
+      if (error.context && typeof error.context.json === "function") {
+        const payload = await error.context.json();
+        if (payload?.message) message = payload.message;
+        if (payload?.error === "monthly_limit_reached") message = "You've used this month's free practice allowance. Choose a plan in your account area to continue.";
+        if (payload?.error === "ai_not_configured") message = "Your account is ready, but the AI service still needs its secure server configuration.";
+        if (payload?.error === "child_mode_not_enabled") message = "Real child accounts are not enabled yet. This is a sample activity only.";
+      }
+    } catch (_) { /* Keep the original service message. */ }
+    return message;
+  }
+
+  async function liveTutorReply() {
+    const { data, error } = await supabase.functions.invoke("tutor", {
+      body: {
+        track: mode === "cambridge" ? "cambridge" : mode,
+        level: level.value,
+        messages: conversation.slice(-10)
+      }
+    });
+    if (error) throw new Error(await showFunctionError(error));
+    if (!data?.reply) throw new Error("The tutor returned an empty response. Please try again.");
+    return data;
+  }
+
+  async function handleAnswer(text) {
     const clean = text.trim();
     if (!clean) return;
     addMessage("learner", "YOUR ANSWER", clean);
-    const feedback = getSampleFeedback(clean);
+
+    if (mode !== "young" && session && supabase) {
+      conversation.push({ role: "user", content: clean });
+      input.disabled = true;
+      send.disabled = true;
+      addMessage("coach", "TEACHER SARA AI", "Thinking through your answer…");
+      const pending = chatArea.lastElementChild;
+      try {
+        const result = await liveTutorReply();
+        if (pending?.parentNode) pending.remove();
+        addMessage("coach", "TEACHER SARA AI", result.reply);
+        conversation.push({ role: "assistant", content: result.reply });
+        turn += 1;
+        await refreshAccountStatus();
+      } catch (error) {
+        if (pending?.parentNode) pending.remove();
+        const message = error?.message || "Something went wrong. Please try again.";
+        addMessage("coach", "A QUICK NOTE", message);
+        if (/monthly|allowance|plan|upgrade/i.test(message)) {
+          setBillingMessage(message);
+          upgradeButton.hidden = !paidPlanConfigured;
+        }
+      } finally {
+        input.disabled = false;
+        send.disabled = false;
+        input.focus();
+      }
+      return;
+    }
+
+    const feedback = sampleCorrection(clean);
     if (feedback) addFeedback(clean, feedback.correction, feedback.explanation);
     else if (clean.split(/\s+/).length < 9) addMessage("coach", "SAMPLE COACH", modes[mode].short);
     else addMessage("coach", "SAMPLE COACH", modes[mode].follow);
@@ -153,14 +262,177 @@
     }
   }
 
+  async function refreshAccountStatus() {
+    if (!supabase || !session) return;
+    try {
+      const [{ data: statusData, error: statusError }, { data: planData, error: planError }] = await Promise.all([
+        supabase.functions.invoke("billing", { body: { action: "status" } }),
+        supabase.functions.invoke("billing", { body: { action: "plans" } })
+      ]);
+      if (!statusError && statusData) {
+        const used = Number(statusData.usage?.used ?? 0);
+        const limit = Number(statusData.usage?.limit ?? 10);
+        usageCount.textContent = used + " / " + limit;
+        usageFill.style.width = Math.min(100, limit > 0 ? (used / limit) * 100 : 0) + "%";
+        const plan = statusData.paid ? "Paid subscription" : "Free access";
+        planLabel.textContent = plan;
+        paidPlanConfigured = statusData.checkoutConfigured === true && !statusData.paid;
+        upgradeButton.hidden = !paidPlanConfigured;
+        manageBillingButton.hidden = !statusData.paid;
+        if (statusData.paid) {
+          setBillingMessage("Your subscription is active. You can manage or cancel it through Stripe's secure billing portal.");
+        } else if (!statusData.checkoutConfigured) {
+          setBillingMessage("The paid plan will appear here after Teacher Sara sets the price and connects Stripe. No payment can be taken yet.");
+        }
+      }
+      if (!planError && planData?.configured && Array.isArray(planData.plans) && planData.plans.length) {
+        const p = planData.plans[0];
+        const amount = new Intl.NumberFormat("es-ES", { style: "currency", currency: String(p.currency || "EUR").toUpperCase() })
+          .format(Number(p.amount || 0) / 100);
+        upgradeButton.textContent = "Upgrade · " + amount + " / " + (p.interval === "year" ? "year" : "month") + " →";
+        paidPlanConfigured = true;
+        upgradeButton.hidden = !!statusData?.paid;
+      }
+    } catch (error) {
+      setBillingMessage("We couldn't refresh your account details. Your access hasn't been changed.");
+    }
+  }
+
+  async function updateAuthView(nextSession) {
+    session = nextSession || null;
+    if (session) {
+      authCard.hidden = true;
+      accountCard.hidden = false;
+      accountIdentity.textContent = session.user?.email || "Signed in";
+      await refreshAccountStatus();
+    } else {
+      authCard.hidden = false;
+      accountCard.hidden = true;
+      paidPlanConfigured = false;
+    }
+  }
+
+  async function signIn() {
+    if (!supabase) {
+      setAuthMessage("Secure account services are not connected yet. The sample lesson remains available.");
+      return;
+    }
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+    if (!email || !password) return setAuthMessage("Enter your email address and password.", true);
+    signInButton.disabled = true;
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      await updateAuthView(data.session);
+      setAuthMessage("Signed in successfully.");
+    } catch (error) {
+      setAuthMessage(error.message || "Unable to sign in. Check your details and try again.", true);
+    } finally {
+      signInButton.disabled = false;
+    }
+  }
+
+  async function signUp() {
+    if (!supabase) {
+      setAuthMessage("The secure account service is not connected yet. No account or payment has been created.");
+      return;
+    }
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+    const displayName = authName.value.trim();
+    if (!email || !password) return setAuthMessage("Enter your email address and choose a password.", true);
+    if (password.length < 8) return setAuthMessage("Use a password with at least 8 characters.", true);
+    signUpButton.disabled = true;
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { display_name: displayName },
+          emailRedirectTo: window.location.origin + "/ai/"
+        }
+      });
+      if (error) throw error;
+      if (data.session) {
+        await updateAuthView(data.session);
+        setAuthMessage("Your account has been created.");
+      } else {
+        setAuthMessage("Check your email to confirm your account, then return here to sign in.");
+      }
+    } catch (error) {
+      setAuthMessage(error.message || "Unable to create your account. Please try again.", true);
+    } finally {
+      signUpButton.disabled = false;
+    }
+  }
+
+  async function startCheckout() {
+    if (!supabase || !session) return setBillingMessage("Sign in first to choose a plan.");
+    upgradeButton.disabled = true;
+    try {
+      const { data, error } = await supabase.functions.invoke("billing", { body: { action: "checkout", plan: "individual" } });
+      if (error) throw new Error(await showFunctionError(error));
+      if (!data?.checkoutUrl) throw new Error(data?.message || "Checkout is not configured yet.");
+      window.location.assign(data.checkoutUrl);
+    } catch (error) {
+      setBillingMessage(error.message || "We couldn't start checkout. No payment has been taken.");
+    } finally {
+      upgradeButton.disabled = false;
+    }
+  }
+
+  async function openBillingPortal() {
+    if (!supabase || !session) return;
+    manageBillingButton.disabled = true;
+    try {
+      const { data, error } = await supabase.functions.invoke("billing", { body: { action: "portal" } });
+      if (error) throw new Error(await showFunctionError(error));
+      if (!data?.portalUrl) throw new Error("The billing portal isn't available yet.");
+      window.location.assign(data.portalUrl);
+    } catch (error) {
+      setBillingMessage(error.message || "We couldn't open billing management.");
+    } finally {
+      manageBillingButton.disabled = false;
+    }
+  }
+
   cards.forEach(card => card.addEventListener("click", () => selectMode(card.dataset.mode)));
-  form.addEventListener("submit", event => {
+  form.addEventListener("submit", async event => {
     event.preventDefault();
     const value = input.value;
     input.value = "";
-    handleAnswer(value);
-    input.focus();
+    await handleAnswer(value);
   });
-  if (start) start.addEventListener("click", startSession);
+  authForm?.addEventListener("submit", event => event.preventDefault());
+  signInButton?.addEventListener("click", signIn);
+  signUpButton?.addEventListener("click", signUp);
+  signOutButton?.addEventListener("click", async () => {
+    if (!supabase) return;
+    const { error } = await supabase.auth.signOut();
+    if (error) setBillingMessage("Unable to sign out. Please try again.");
+    else await updateAuthView(null);
+  });
+  upgradeButton?.addEventListener("click", startCheckout);
+  manageBillingButton?.addEventListener("click", openBillingPortal);
+
+  if (supabase) {
+    supabase.auth.onAuthStateChange((_event, nextSession) => {
+      void updateAuthView(nextSession);
+    });
+    supabase.auth.getSession().then(({ data }) => updateAuthView(data.session));
+  } else {
+    authCard.hidden = false;
+    accountCard.hidden = true;
+    setAuthMessage("Secure accounts and paid subscriptions will activate after the Supabase server and Stripe products are configured.");
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("checkout") === "success") {
+    setAuthMessage("Payment returned successfully. Subscription access is confirmed by Stripe's secure webhook; sign in or refresh your account shortly.");
+  } else if (params.get("checkout") === "cancel") {
+    setAuthMessage("Checkout was cancelled. No subscription was created.");
+  }
+
   selectMode("cambridge");
 })();
