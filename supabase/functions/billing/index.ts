@@ -60,13 +60,15 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
 
     if (action === "status") {
       const monthStart = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString().slice(0, 10);
-      const [{ data: subscription }, { data: usage }, { data: voiceUsage }] = await Promise.all([
+      const [{ data: subscription }, { data: usage }, { data: voiceUsage }, { data: billingCustomer }] = await Promise.all([
         ctx.supabase.from("subscriptions").select("status,plan_key,current_period_end,cancel_at_period_end")
           .eq("owner_id", userId).order("current_period_end", { ascending: false }).limit(1).maybeSingle(),
         ctx.supabaseAdmin.from("ai_usage_monthly").select("request_count")
           .eq("user_id", userId).eq("month_start", monthStart).maybeSingle(),
         ctx.supabaseAdmin.from("ai_voice_usage_monthly").select("session_count")
           .eq("user_id", userId).eq("month_start", monthStart).maybeSingle(),
+        ctx.supabaseAdmin.from("billing_customers").select("stripe_customer_id")
+          .eq("user_id", userId).maybeSingle(),
       ]);
       const active = !!subscription && ["active", "trialing"].includes(subscription.status) &&
         (!subscription.current_period_end || new Date(subscription.current_period_end).getTime() > Date.now());
@@ -78,6 +80,7 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
         email: userEmail ?? null,
         subscription: subscription ?? null,
         paid: active,
+        hasBillingCustomer: Boolean(billingCustomer?.stripe_customer_id),
         aiConfigured: Boolean(Deno.env.get("OPENAI_API_KEY") && Deno.env.get("OPENAI_MODEL")),
         usage: { used: usage?.request_count ?? 0, limit },
         voiceEnabled,
