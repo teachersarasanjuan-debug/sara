@@ -153,36 +153,99 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
       return json({ error: "monthly_limit_reached", message: "You've used this month's practice allowance. You can upgrade your plan to continue.", upgrade_required: true }, 402);
     }
 
-    const aiRes = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${openAiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model,
-        instructions: instructions(track, level),
-        input: safeMessages,
-        max_output_tokens: 450,
-        store: false,
-      }),
-    });
+    const feedbackSchema = {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        reply: { type: "string", description: "A natural, concise teacher response that continues the activity with one useful question where appropriate." },
+        encouragement: { type: "string", description: "One specific thing the learner did well; no generic repeated praise." },
+        correction: { anyOf: [{ type: "string" }, { type: "null" }], description: "When a genuine improvement is useful, format as the learner's exact short phrase, an arrow, then a natural improved phrase. Otherwise null." },
+        explanation: { type: "string", description: "A short plain-English explanation of the correction, or an empty string if there is no correction." },
+        retryPrompt: { type: "string", description: "A short prompt to practise the correction in a new sentence, or an empty string if no retry is needed." },
+        nextStep: { type: "string", description: "One practical next learning step." },
+        teacherSummary: { type: "string", description: "A short non-identifying summary of the skill practised. Never quote the learner or include personal details." },
+        skillEvidence: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              skill: { type: "string", enum: ["speaking", "grammar", "vocabulary", "listening", "writing", "pronunciation", "pragmatics"] },
+              evidence: { type: "string", description: "A brief paraphrased observation about the skill practised; never quote the learner or include personal information." }
+            },
+            required: ["skill", "evidence"]
+          }
+        }
+      },
+      required: ["reply", "encouragement", "correction", "explanation", "retryPrompt", "nextStep", "teacherSummary", "skillEvidence"]
+    };
+
+    let aiRes: Response;
+    try {
+      aiRes = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${openAiKey}`, "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(25000),
+        body: JSON.stringify({
+          model,
+          instructions: instructions(track, level) + "\\n\\nReturn a structured teaching-feedback object. Keep all fields concise. If the learner's message is unrelated to English learning, respond kindly and redirect to the selected learning goal. Never invent a learner error.",
+          input: safeMessages,
+          text: {
+            format: {
+              type: "json_schema",
+              name: "teacher_sara_learning_feedback",
+              strict: true,
+              schema: feedbackSchema
+            }
+          },
+          max_output_tokens: 700,
+          store: false,
+        }),
+      });
+    } catch (error) {
+      console.error("OpenAI response network failure", String(error).slice(0, 250));
+      await ctx.supabaseAdmin.rpc("refund_ai_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
+      return json({ error: "ai_request_failed", message: "The teaching service could not be reached. Your practice credit has been returned." }, 502);
+    }
     if (!aiRes.ok) {
       const detail = await aiRes.text();
       console.error("OpenAI response failed", aiRes.status, detail.slice(0, 500));
       await ctx.supabaseAdmin.rpc("refund_ai_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
       return json({ error: "ai_request_failed", message: "I couldn't complete that response. Your practice credit has been returned. Please try again." }, 502);
     }
+
     const result = await aiRes.json();
-    const reply = extractOutputText(result);
-    if (!reply) {
+    const rawFeedback = extractOutputText(result);
+    let feedback: any;
+    try { feedback = JSON.parse(rawFeedback); } catch { feedback = null; }
+    const validFeedback = feedback &&
+      typeof feedback.reply === "string" &&
+      typeof feedback.encouragement === "string" &&
+      (typeof feedback.correction === "string" || feedback.correction === null) &&
+      typeof feedback.explanation === "string" &&
+      typeof feedback.retryPrompt === "string" &&
+      typeof feedback.nextStep === "string" &&
+      typeof feedback.teacherSummary === "string" &&
+      Array.isArray(feedback.skillEvidence) &&
+      feedback.skillEvidence.every((item: any) =>
+        item && ["speaking", "grammar", "vocabulary", "listening", "writing", "pronunciation", "pragmatics"].includes(item.skill) &&
+        typeof item.evidence === "string"
+      );
+    if (!validFeedback) {
       await ctx.supabaseAdmin.rpc("refund_ai_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
-      return json({ error: "empty_ai_response", message: "I didn't receive a useful response. Your practice credit has been returned. Please try again." }, 502);
+      return json({ error: "invalid_ai_feedback", message: "The tutor could not prepare reliable feedback. Your practice credit has been returned." }, 502);
     }
 
-    // Check generated output as well as learner input. If the safety service is unavailable,
-    // do not return unmoderated output and restore the reserved practice credit.
+    // Check all learner-facing generated text, not just the conversational sentence.
+    const moderationText = [
+      feedback.reply, feedback.encouragement, feedback.correction ?? "",
+      feedback.explanation, feedback.retryPrompt, feedback.nextStep
+    ].join("\\n");
     const outputModRes = await fetch("https://api.openai.com/v1/moderations", {
       method: "POST",
       headers: { "Authorization": `Bearer ${openAiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "omni-moderation-latest", input: reply }),
+      signal: AbortSignal.timeout(10000),
+      body: JSON.stringify({ model: "omni-moderation-latest", input: moderationText }),
     });
     if (!outputModRes.ok) {
       await ctx.supabaseAdmin.rpc("refund_ai_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
@@ -194,10 +257,43 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
       return json({ error: "response_needs_review", message: "The tutor response needs a safety review. Your practice credit has been returned." }, 502);
     }
 
-    // No prompts, transcripts or audio are stored in Teacher Sara's database. Only aggregate
-    // monthly request counts are kept. OpenAI API data handling is governed by account settings.
+    // Save learning evidence only: no raw learner messages, prompts, transcripts or audio.
+    const learningMode = track === "business" ? "business" : "cambridge";
+    const objective = track === "business"
+      ? "Communicate clearly and appropriately in a workplace situation."
+      : "Develop clear, well-supported English answers with accurate language.";
+    const { data: lesson, error: lessonError } = await ctx.supabaseAdmin
+      .from("lesson_sessions")
+      .insert({
+        owner_id: userId,
+        learning_mode: learningMode,
+        cefr_level: level,
+        scenario_key: track,
+        objective,
+        teacher_summary: feedback.teacherSummary.slice(0, 500),
+        next_step: feedback.nextStep.slice(0, 300),
+        duration_seconds: 0,
+        completed_at: new Date().toISOString()
+      })
+      .select("id")
+      .single();
+    if (lessonError) {
+      console.error("Learning summary could not be saved", lessonError.message);
+    } else if (lesson?.id && feedback.skillEvidence.length > 0) {
+      const evidenceRows = feedback.skillEvidence.slice(0, 3).map((item: any) => ({
+        owner_id: userId,
+        session_id: lesson.id,
+        skill: item.skill,
+        level_band: level,
+        evidence: item.evidence.slice(0, 300)
+      }));
+      const { error: evidenceError } = await ctx.supabaseAdmin.from("skill_evidence").insert(evidenceRows);
+      if (evidenceError) console.error("Skill evidence could not be saved", evidenceError.message);
+    }
+
     return json({
-      reply,
+      ...feedback,
+      sessionRecorded: Boolean(lesson?.id),
       quota: { monthlyLimit: limit, paid, monthStart: monthStartUtc() },
       model,
     });
