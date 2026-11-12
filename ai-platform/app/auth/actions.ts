@@ -3,7 +3,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export async function signUp(formData: FormData) {
+type AuthActionResult = { error?: string; success?: string };
+
+export async function signUp(formData: FormData): Promise<AuthActionResult> {
   if (formData.get("adult_confirmed") !== "yes") return { error:"The initial beta is only available to adults aged 18+." };
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
@@ -25,7 +27,7 @@ export async function signUp(formData: FormData) {
   redirect("/dashboard");
 }
 
-export async function signIn(formData: FormData) {
+export async function signIn(formData: FormData): Promise<AuthActionResult> {
   if (formData.get("adult_confirmed") !== "yes") return { error:"The initial beta is only available to adults aged 18+." };
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
