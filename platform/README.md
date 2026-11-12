@@ -5,13 +5,13 @@ This application is separate from the existing static Teacher Sara website. The 
 ## What is in this branch
 - Next.js App Router application in this directory.
 - Supabase email magic-link authentication and protected studio pages.
-- Server-side OpenAI Responses API chat with input moderation, structured teaching feedback and monthly quota checks.
+- Server-side OpenAI Responses API coach with input and output moderation, bounded conversation context, teacher-authored Cambridge/Business lesson scenarios, visible objectives, structured feedback, retry prompts and monthly quota checks.
 - Stripe subscription checkout, customer portal and signed webhook handler.
-- Server-side Realtime WebRTC SDP proxy: the browser sends its offer to the app server, which calls OpenAI with the private API key; no OpenAI credential is sent to the browser.
+- Server-side Realtime WebRTC SDP proxy: the browser sends its offer to the app server, which calls OpenAI with the private API key; no OpenAI credential is sent to the browser. Voice practice includes teacher-authored scenarios and approximate live transcripts for learner/coach speech, held in page memory only.
 - Teacher account overview (email allowlist, server-side admin client).
 - Draft privacy and terms pages.
 - Adult-only beta. Child chat is disabled until guardian controls, safeguarding and legal checks are complete.
-- Chat transcripts are not saved by the application; only account, subscription and usage metadata are stored.
+- Chat transcripts and voice recordings are not saved by the application. Live voice text transcripts exist only in browser memory during the open page. Account, subscription and usage metadata are stored.
 
 ## IMPORTANT: this is not yet a live paid service
 The code has been added to GitHub, but no production server, database, API credentials, Stripe product, subscription price, domain or deployment has been connected. Do not tell customers they can buy access yet. The paid checkout route returns a configuration error until Stripe is set up.
@@ -52,7 +52,7 @@ Connect the Supabase, Vercel and Stripe apps to the working environment. The use
 1. Create an API project and separate API billing account.
 2. Set an account usage budget/alerts.
 3. Add OPENAI_API_KEY only to Vercel server environment variables.
-4. Use a supported model identifier in OPENAI_MODEL and OPENAI_REALTIME_MODEL (default: gpt-realtime-2.1-mini).
+4. Use supported model identifiers in OPENAI_MODEL and OPENAI_REALTIME_MODEL. Current defaults: gpt-5.4-mini for text coaching and gpt-realtime-2.1-mini for voice. The live voice transcription guide model is gpt-transcribe.
 5. Test cost per session, moderation, response quality and latency before inviting users.
 
 ### E. Stripe
@@ -75,9 +75,9 @@ Add Sara's sign-in email to TEACHER_EMAILS in Vercel (comma-separated). This giv
 - Free beta: 10 text messages per calendar month.
 - Active paid plan: 300 text messages per month.
 - Active paid plan: up to 10 voice session starts per calendar month.
-These are provisional product guardrails. They need to be compared with actual API cost and customer value before setting the public subscription price. The in-app interface ends a voice connection after 10 minutes, but that timer is client-side and can be bypassed; it is not a server-enforced maximum duration.
+These are provisional product guardrails. They need to be compared with actual API cost and customer value before setting the public subscription price. The in-app interface ends a voice connection after 10 minutes, but that timer is client-side and can be bypassed; it is not a server-enforced maximum duration. Live transcription is approximate and must not be treated as the exact words understood by the model or as a pronunciation score.
 
-## Important pre-launch requirements
+## AI usage cost notes (published API rates checked 12 November 2026)\n- GPT-5.4 mini text coaching is listed at $0.75 per 1M input tokens and $4.50 per 1M output tokens.\n- GPT-Realtime-2.1 mini audio is listed at $10 per 1M input audio tokens and $20 per 1M output audio tokens; text tokens are priced separately.\n- gpt-transcribe is listed at $0.0045 per minute.\n- These rates do not reveal the actual cost of one lesson; token/audio usage varies with duration, pauses, learner/coach speaking ratio and response length. Run real pilot sessions and monitor OpenAI project usage before setting the subscription price or expanding included usage.\n\n## Important pre-launch requirements
 - Replace and legally review the draft privacy notice and terms. Add the legal data controller identity, purposes/legal bases, retention, processors, international transfers, user rights process, support and complaint route.
 - Confirm Spanish/EU consumer subscription rules, VAT treatment, withdrawal/cancellation/refund terms and accessibility with an appropriate adviser.
 - Independent child accounts and open child chat are disabled. A child service must have verified guardian controls, appropriate consent, safeguarding, data minimisation and a separate data-protection assessment. Spain's general consent threshold for processing based on a minor's consent is 14, subject to exceptions; see https://www.aepd.es/preguntas-frecuentes/10-menores-y-educacion/FAQ-1001-cual-es-la-edad-para-que-los-menores-puedan-prestar-consentimiento-para-tratar-sus-datos-personales
