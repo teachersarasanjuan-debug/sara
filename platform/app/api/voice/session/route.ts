@@ -1,6 +1,6 @@
 import {NextResponse} from "next/server";
 import {getCurrentUser} from "@/lib/auth";
-import {buildCoachInstructions,type Track} from "@/lib/coach-prompts";
+import {buildVoiceInstructions,type Track} from "@/lib/coach-prompts";
 import {createHash} from "node:crypto";
 import {sameOrigin} from "@/lib/security";
 export const runtime="nodejs";
@@ -17,7 +17,7 @@ export async function POST(request:Request){
  const q=Array.isArray(credit)?credit[0]:credit;
  if(error||!q?.allowed)return NextResponse.json({error:"Your included voice sessions have been used."},{status:402});
  try{
-  const response=await fetch("https://api.openai.com/v1/realtime/client_secrets",{method:"POST",headers:{"Authorization":"Bearer "+process.env.OPENAI_API_KEY,"Content-Type":"application/json","OpenAI-Safety-Identifier":createHash("sha256").update(auth.user.id).digest("hex")},body:JSON.stringify({session:{type:"realtime",model:process.env.OPENAI_REALTIME_MODEL??"gpt-realtime-2.1",audio:{output:{voice:"marin"}},instructions:buildCoachInstructions(track,level)}}),cache:"no-store"});
+  const response=await fetch("https://api.openai.com/v1/realtime/client_secrets",{method:"POST",headers:{"Authorization":"Bearer "+process.env.OPENAI_API_KEY,"Content-Type":"application/json","OpenAI-Safety-Identifier":createHash("sha256").update(auth.user.id).digest("hex")},body:JSON.stringify({session:{type:"realtime",model:process.env.OPENAI_REALTIME_MODEL??"gpt-realtime-2.1",audio:{output:{voice:"marin"}},instructions:buildVoiceInstructions(track,level)}}),cache:"no-store"});
   const result=await response.json();if(!response.ok){await auth.supabase.rpc("refund_voice_credit");return NextResponse.json({error:"Could not create a voice session."},{status:503});}
   return NextResponse.json(result,{headers:{"Cache-Control":"no-store"}});
  }catch(error){await auth.supabase.rpc("refund_voice_credit");console.error("Voice setup failed:",error instanceof Error?error.message:"unknown");return NextResponse.json({error:"Voice practice is temporarily unavailable."},{status:503});}
