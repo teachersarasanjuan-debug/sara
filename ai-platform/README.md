@@ -1,4 +1,6 @@
-# Teacher Sara AI — full-stack application
+# Teacher Sara AI — experimental Next.js application
+
+> **Release-path warning:** This folder is an experimental alternative frontend, not the first-beta deployment target. The current release path is the static `/ai/` learning studio plus the already provisioned Supabase Edge Functions described in [AI_LAUNCH_RUNBOOK.md](../AI_LAUNCH_RUNBOOK.md). Do not deploy this Next.js app as the live product until its data access code and migrations have been reconciled with the existing Supabase schema. In particular, the production schema uses `owner_id` and the `lesson_sessions` table; early code in this folder was written against a different schema.
 
 This is a separate Next.js application in `ai-platform/`. The existing Teacher Sara static website is not replaced.
 
