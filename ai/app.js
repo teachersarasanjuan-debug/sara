@@ -254,7 +254,22 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
         const result = await liveTutorReply();
         if (pending?.parentNode) pending.remove();
         addMessage("coach", "TEACHER SARA AI", result.reply);
-        conversation.push({ role: "assistant", content: result.reply });
+        if (result.encouragement) addMessage("coach", "WHAT WORKED", result.encouragement);
+        if (result.correction) addFeedback(clean, result.correction, result.explanation || "");
+        if (result.retryPrompt) addMessage("coach", "TRY IT AGAIN", result.retryPrompt);
+        if (result.nextStep) addMessage("coach", "NEXT STEP", result.nextStep);
+        if (Array.isArray(result.skillEvidence) && result.skillEvidence.length) {
+          const skills = [...new Set(result.skillEvidence.map(item => item.skill).filter(Boolean))];
+          if (skills.length) addMessage("coach", "SKILLS PRACTISED", skills.join(" · "));
+        }
+        const assistantContext = [
+          result.reply,
+          result.encouragement ? "What worked: " + result.encouragement : "",
+          result.correction ? "Correction: " + result.correction + ". " + (result.explanation || "") : "",
+          result.retryPrompt ? "Retry: " + result.retryPrompt : "",
+          result.nextStep ? "Next step: " + result.nextStep : ""
+        ].filter(Boolean).join("\\n");
+        conversation.push({ role: "assistant", content: assistantContext });
         turn += 1;
         await refreshAccountStatus();
       } catch (error) {
