@@ -140,7 +140,10 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
     try { moderation = await modRes.json(); } catch {
       return json({ error: "safety_check_unavailable", message: "The safety check returned an invalid response. No practice credit was used." }, 503);
     }
-    if (moderation?.results?.[0]?.flagged === true) {
+    if (!Array.isArray(moderation?.results) || typeof moderation.results[0]?.flagged !== "boolean") {
+      return json({ error: "safety_check_unavailable", message: "The safety check response was incomplete. No practice credit was used." }, 503);
+    }
+    if (moderation.results[0].flagged === true) {
       return json({ error: "message_needs_review", message: "Let's keep our practice safe and respectful. Please try a different example." }, 422);
     }
 
@@ -285,7 +288,11 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
       await ctx.supabaseAdmin.rpc("refund_ai_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
       return json({ error: "safety_check_unavailable", message: "The final safety check returned an invalid response. Your practice credit has been returned." }, 503);
     }
-    if (outputModeration?.results?.[0]?.flagged === true) {
+    if (!Array.isArray(outputModeration?.results) || typeof outputModeration.results[0]?.flagged !== "boolean") {
+      await ctx.supabaseAdmin.rpc("refund_ai_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
+      return json({ error: "safety_check_unavailable", message: "The final safety check response was incomplete. Your practice credit has been returned." }, 503);
+    }
+    if (outputModeration.results[0].flagged === true) {
       await ctx.supabaseAdmin.rpc("refund_ai_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
       return json({ error: "response_needs_review", message: "The tutor response needs a safety review. Your practice credit has been returned." }, 502);
     }
