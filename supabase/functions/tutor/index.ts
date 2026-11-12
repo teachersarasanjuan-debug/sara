@@ -43,7 +43,7 @@ function extractOutputText(data: any): string {
   return parts.join("\n").trim();
 }
 
-const instructions = (track: string, level: string) => {
+const instructions = (track: string, level: string, selfRating: string) => {
   const common = `You are Teacher Sara AI, a careful English practice coach guided by an experienced British English teacher. You are an AI, not Sara and not a human teacher.
 
 Teaching method:
@@ -67,7 +67,13 @@ Teaching method:
     business: `Track: Business English. Role-play realistic professional situations such as project updates, meetings, presentations, calls, email wording and supplier/customer conversations. Correct register, clarity, diplomacy and action-focused communication. Do not provide legal, HR, financial or regulated professional advice.`,
     general: `Track: General English. Practise everyday communication, grammar, vocabulary, reading or writing. Keep tasks practical and level-appropriate.`,
   };
+  const difficultyGuidance = selfRating === "too_easy"
+    ? "The learner says the current level feels too easy. Increase the cognitive or language challenge slightly, while respecting their selected CEFR band."
+    : selfRating === "too_difficult"
+      ? "The learner says the current level feels too difficult. Simplify the next task, reduce the number of demands and provide a useful scaffold without talking down to the learner."
+      : "The learner says the current level feels about right. Maintain the current challenge and adapt gradually from demonstrated performance.";
   return common + "\n\n" + (trackGuidance[track] ?? trackGuidance.general) +
+    "\n\n" + difficultyGuidance +
     "\n\nFeedback format when a correction is useful:\nYour response: ...\nOne useful improvement: ...\nTry: ...\nWhy: ...\nNow try this: ...";
 };
 
@@ -83,6 +89,9 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
 
     const track = String(body?.track ?? "general");
     const level = String(body?.level ?? "B1");
+    const selfRating = ["too_easy", "right_level", "too_difficult"].includes(body?.selfRating) ? String(body.selfRating) : "right_level";
+    const requestedSessionId = typeof body?.sessionId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.sessionId) ? body.sessionId : crypto.randomUUID();
+    const durationSeconds = Math.max(0, Math.min(7200, Math.floor(Number(body?.durationSeconds) || 0)));
     if (!["general", "cambridge", "business", "young"].includes(track)) {
       return json({ error: "invalid_track" }, 400);
     }
@@ -119,6 +128,7 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
     const modRes = await fetch("https://api.openai.com/v1/moderations", {
       method: "POST",
       headers: { "Authorization": `Bearer ${openAiKey}`, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(10000),
       body: JSON.stringify({ model: "omni-moderation-latest", input: lastUser.content }),
     });
     if (!modRes.ok) return json({ error: "safety_check_unavailable", message: "The safety check is temporarily unavailable. Please try again shortly." }, 503);
@@ -188,7 +198,7 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
         signal: AbortSignal.timeout(25000),
         body: JSON.stringify({
           model,
-          instructions: instructions(track, level) + "\\n\\nReturn a structured teaching-feedback object. Keep all fields concise. If the learner's message is unrelated to English learning, respond kindly and redirect to the selected learning goal. Never invent a learner error.",
+          instructions: instructions(track, level, selfRating) + "\\n\\nReturn a structured teaching-feedback object. Keep all fields concise. If the learner's message is unrelated to English learning, respond kindly and redirect to the selected learning goal. Never invent a learner error.",
           input: safeMessages,
           text: {
             format: {
@@ -239,7 +249,9 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
     // Check all learner-facing generated text, not just the conversational sentence.
     const moderationText = [
       feedback.reply, feedback.encouragement, feedback.correction ?? "",
-      feedback.explanation, feedback.retryPrompt, feedback.nextStep
+      feedback.explanation, feedback.retryPrompt, feedback.nextStep,
+      feedback.teacherSummary,
+      ...feedback.skillEvidence.map((item: any) => item.evidence)
     ].join("\\n");
     let outputModRes: Response;
     try {
@@ -268,21 +280,32 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
     const objective = track === "business"
       ? "Communicate clearly and appropriately in a workplace situation."
       : "Develop clear, well-supported English answers with accurate language.";
-    const { data: lesson, error: lessonError } = await ctx.supabaseAdmin
-      .from("lesson_sessions")
-      .insert({
-        owner_id: userId,
-        learning_mode: learningMode,
-        cefr_level: level,
-        scenario_key: track,
-        objective,
-        teacher_summary: feedback.teacherSummary.slice(0, 500),
-        next_step: feedback.nextStep.slice(0, 300),
-        duration_seconds: 0,
-        completed_at: new Date().toISOString()
-      })
-      .select("id")
-      .single();
+    const lessonPayload = {
+      owner_id: userId, learning_mode: learningMode, cefr_level: level,
+      scenario_key: track, objective,
+      teacher_summary: feedback.teacherSummary.slice(0, 500),
+      next_step: feedback.nextStep.slice(0, 300),
+      self_rating: selfRating, duration_seconds: durationSeconds,
+      completed_at: new Date().toISOString()
+    };
+    // One database record represents the whole chat session, not one row per learner turn.
+    const { data: existingLesson } = await ctx.supabaseAdmin.from("lesson_sessions")
+      .select("id").eq("id", requestedSessionId).eq("owner_id", userId).maybeSingle();
+    let lessonResult: any, lessonError: any;
+    if (existingLesson?.id) {
+      const updated = await ctx.supabaseAdmin.from("lesson_sessions").update(lessonPayload)
+        .eq("id", requestedSessionId).eq("owner_id", userId).select("id").single();
+      lessonResult = updated.data; lessonError = updated.error;
+    } else {
+      const inserted = await ctx.supabaseAdmin.from("lesson_sessions")
+        .insert({ id: requestedSessionId, ...lessonPayload }).select("id").single();
+      lessonResult = inserted.data; lessonError = inserted.error;
+      if (lessonError?.code === "23505") {
+        const fallback = await ctx.supabaseAdmin.from("lesson_sessions").insert(lessonPayload).select("id").single();
+        lessonResult = fallback.data; lessonError = fallback.error;
+      }
+    }
+    const lesson = lessonResult;
     if (lessonError) {
       console.error("Learning summary could not be saved", lessonError.message);
     } else if (lesson?.id && feedback.skillEvidence.length > 0) {
@@ -300,6 +323,7 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
     return json({
       ...feedback,
       sessionRecorded: Boolean(lesson?.id),
+      sessionId: lesson?.id ?? requestedSessionId,
       quota: { monthlyLimit: limit, paid, monthStart: monthStartUtc() },
       model,
     });
