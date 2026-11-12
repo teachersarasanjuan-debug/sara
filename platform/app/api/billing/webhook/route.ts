@@ -18,7 +18,7 @@ export async function POST(request:Request){
    if(uid&&session.subscription){
     const sub=await getStripe().subscriptions.retrieve(String(session.subscription));
     const status=sub.status;
-    const result=await db.from("profiles").update({stripe_customer_id:customer,stripe_subscription_id:sub.id,subscription_status:status,plan:status==="active"||status==="trialing"?"pro":"free",current_period_end:new Date(sub.current_period_end*1000).toISOString()}).eq("id",uid);
+    const result=await db.from("profiles").update({stripe_customer_id:customer,stripe_subscription_id:sub.id,subscription_status:status,plan:status==="active"||status==="trialing"?"pro":"free",current_period_end:new Date((sub.items.data[0]?.current_period_end??Math.floor(Date.now()/1000))*1000).toISOString()}).eq("id",uid);
     if(result.error)throw result.error;
    }
   }
@@ -26,7 +26,7 @@ export async function POST(request:Request){
    const sub=event.data.object as Stripe.Subscription;
    const uid=sub.metadata?.user_id;
    const customer=typeof sub.customer==="string"?sub.customer:sub.customer.id;
-   if(uid){const result=await db.from("profiles").update({stripe_customer_id:customer,stripe_subscription_id:sub.id,subscription_status:sub.status,plan:sub.status==="active"||sub.status==="trialing"?"pro":"free",current_period_end:new Date(sub.current_period_end*1000).toISOString()}).eq("id",uid);if(result.error)throw result.error;}
+   if(uid){const result=await db.from("profiles").update({stripe_customer_id:customer,stripe_subscription_id:sub.id,subscription_status:sub.status,plan:sub.status==="active"||sub.status==="trialing"?"pro":"free",current_period_end:new Date((sub.items.data[0]?.current_period_end??Math.floor(Date.now()/1000))*1000).toISOString()}).eq("id",uid);if(result.error)throw result.error;}
   }
   if(event.type==="invoice.payment_failed"){
    const invoice=event.data.object as Stripe.Invoice;
