@@ -1,5 +1,19 @@
 import { withSupabase } from "npm:@supabase/server@1";
 
+
+const corsHeaders = (req: Request): HeadersInit => {
+  const origin = req.headers.get("origin");
+  const allowed = (Deno.env.get("APP_ALLOWED_ORIGINS") ?? "https://teachersara.es,https://www.teachersara.es")
+    .split(",").map((value) => value.trim()).filter(Boolean);
+  return {
+    ...(origin && allowed.includes(origin) ? { "Access-Control-Allow-Origin": origin } : {}),
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Max-Age": "86400",
+    "Vary": "Origin",
+  };
+};
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -48,8 +62,7 @@ Teaching method:
     "\n\nFeedback format when a correction is useful:\nYour response: ...\nOne useful improvement: ...\nTry: ...\nWhy: ...\nNow try this: ...";
 };
 
-export default {
-  fetch: withSupabase({ auth: "user" }, async (req: Request, ctx: any) => {
+const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request, ctx: any) => {
     if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
     let body: any;
@@ -151,5 +164,16 @@ export default {
       quota: { monthlyLimit: limit, paid, monthStart: monthStartUtc() },
       model,
     });
-  }),
+  });
+
+export default {
+  fetch: async (req: Request) => {
+    if (req.method === "OPTIONS") {
+      return new Response("ok", { headers: corsHeaders(req) });
+    }
+    const response = await authenticatedHandler(req);
+    const headers = new Headers(response.headers);
+    for (const [key, value] of Object.entries(corsHeaders(req))) headers.set(key, value);
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  },
 };
