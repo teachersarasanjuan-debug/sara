@@ -151,7 +151,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     });
     if (levelFeedback) {
       const messages = { too_easy: "Thanks. The next activity will be a little more demanding.", right_level: "Great. We will keep the practice around this level.", too_difficult: "Thanks. The next activity will use simpler language and more support." };
-      levelFeedback.textContent = messages[value];
+      levelFeedback.textContent = (!session || mode === "young")
+        ? "This rating will guide the live tutor once you are signed in."
+        : messages[value];
     }
   }
 
@@ -305,8 +307,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
       send.disabled = true;
       addMessage("coach", "TEACHER SARA AI", "Thinking through your answer…");
       const pending = chatArea.lastElementChild;
+      const requestSessionId = activeSessionId;
       try {
         const result = await liveTutorReply();
+        if (requestSessionId !== activeSessionId) return;
         if (result.sessionId) activeSessionId = result.sessionId;
         if (pending?.parentNode) pending.remove();
         addMessage("coach", "TEACHER SARA AI", result.reply);
@@ -329,18 +333,22 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
         turn += 1;
         await refreshAccountStatus();
       } catch (error) {
-        if (pending?.parentNode) pending.remove();
-        const message = error?.message || "Something went wrong. Please try again.";
-        addMessage("coach", "A QUICK NOTE", message);
-        if (/monthly|allowance|plan|upgrade/i.test(message)) {
-          setBillingMessage(message);
-          upgradeButton.hidden = !paidPlanConfigured;
+        if (requestSessionId === activeSessionId) {
+          if (pending?.parentNode) pending.remove();
+          const message = error?.message || "Something went wrong. Please try again.";
+          addMessage("coach", "A QUICK NOTE", message);
+          if (/monthly|allowance|plan|upgrade/i.test(message)) {
+            setBillingMessage(message);
+            upgradeButton.hidden = !paidPlanConfigured;
+          }
         }
       } finally {
-        const practiceExpired = Boolean(sessionEndsAt && Date.now() >= sessionEndsAt);
-        input.disabled = practiceExpired;
-        send.disabled = practiceExpired;
-        if (!practiceExpired) input.focus();
+        if (requestSessionId === activeSessionId) {
+          const practiceExpired = Boolean(sessionEndsAt && Date.now() >= sessionEndsAt);
+          input.disabled = practiceExpired || !sessionStartedAt;
+          send.disabled = practiceExpired || !sessionStartedAt;
+          if (!practiceExpired && sessionStartedAt) input.focus();
+        }
       }
       return;
     }
@@ -683,6 +691,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     if (error) setBillingMessage("Unable to sign out. Please try again.");
     else {
       await stopVoiceSession("Signed out. The microphone is disconnected.");
+      resetSession();
       await updateAuthView(null);
     }
   });
