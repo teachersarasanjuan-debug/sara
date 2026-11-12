@@ -16,7 +16,7 @@ create table if not exists public.profiles (
   monthly_limit integer not null default 10 check (monthly_limit >= 0),
   usage_month date not null default date_trunc('month', now())::date,
   voice_sessions_used integer not null default 0 check (voice_sessions_used >= 0),
-  voice_usage_month date not null default date_trunc('month', now())::date,
+  voice_usage_month date not null default date_trunc('month', now())::date,\n  share_learning_notes boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -115,3 +115,58 @@ grant execute on function public.refund_voice_credit(uuid) to service_role;
 
 -- Configure the server-only TEACHER_EMAILS environment variable to allow Sara's verified login email to access /teacher.
 -- No client-editable teacher-role field is present in this starter schema.
+
+
+-- Optional teacher-reviewed progress notes: no learner chat transcripts or audio are stored.
+create table if not exists public.learning_notes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  track text not null check (track in ('cambridge','business')),
+  scenario text not null,
+  level text not null check (level in ('A2','B1','B2','C1')),
+  note text not null check (char_length(note) between 1 and 300),
+  created_at timestamptz not null default now()
+);
+create index if not exists learning_notes_user_created_idx on public.learning_notes(user_id,created_at desc);
+
+alter table public.learning_notes enable row level security;
+revoke all on public.learning_notes from anon;
+grant select on public.learning_notes to authenticated;
+grant all on public.learning_notes to service_role;
+drop policy if exists "Learners can read their own progress notes" on public.learning_notes;
+create policy "Learners can read their own progress notes" on public.learning_notes
+for select to authenticated using (auth.uid()=user_id);
+revoke insert,update,delete on public.learning_notes from anon,authenticated;
+
+create or replace function public.set_learning_notes_consent(p_user_id uuid,p_enabled boolean)
+returns boolean language plpgsql security definer set search_path = ''
+as $$
+begin
+ update public.profiles set share_learning_notes=p_enabled,updated_at=now() where id=p_user_id;
+ return found;
+end;
+$$;
+
+create or replace function public.save_learning_note(p_user_id uuid,p_track text,p_scenario text,p_level text,p_note text)
+returns boolean language plpgsql security definer set search_path = ''
+as $$
+declare opted_in boolean;
+begin
+ select share_learning_notes into opted_in from public.profiles where id=p_user_id;
+ if not coalesce(opted_in,false) then return false; end if;
+ if p_track not in ('cambridge','business') or p_level not in ('A2','B1','B2','C1')
+    or char_length(coalesce(p_note,'')) not between 1 and 300 then return false; end if;
+ insert into public.learning_notes(user_id,track,scenario,level,note)
+ values(p_user_id,p_track,p_scenario,p_level,left(trim(p_note),300));
+ delete from public.learning_notes
+ where user_id=p_user_id and id not in (
+   select id from public.learning_notes where user_id=p_user_id order by created_at desc limit 100
+ );
+ return true;
+end;
+$$;
+
+revoke all on function public.set_learning_notes_consent(uuid,boolean) from public,anon,authenticated;
+revoke all on function public.save_learning_note(uuid,text,text,text,text) from public,anon,authenticated;
+grant execute on function public.set_learning_notes_consent(uuid,boolean) to service_role;
+grant execute on function public.save_learning_note(uuid,text,text,text,text) to service_role;
