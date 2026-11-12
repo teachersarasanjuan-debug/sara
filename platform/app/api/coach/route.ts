@@ -1,5 +1,6 @@
 import {NextResponse} from "next/server";
 import {getCurrentUser} from "@/lib/auth";
+import {createAdminClient} from "@/lib/supabase/admin";
 import {getOpenAI} from "@/lib/openai";
 import {buildCoachInstructions,type Track} from "@/lib/coach-prompts";
 import {sameOrigin} from "@/lib/security";
@@ -24,64 +25,75 @@ export async function POST(request:Request){
  if(message.length<2||message.length>1600)return NextResponse.json({error:"Please enter between 2 and 1,600 characters."},{status:400});
 
  const history=Array.isArray(body.history)?body.history.slice(-8):[];
- if(history.some(item=>!item||!["user","assistant"].includes(item.role)||typeof item.content!=="string"||item.content.length>1600))
+ if(history.length>0&&history.some(item=>!item||!["user","assistant"].includes(item.role)||typeof item.content!=="string"||item.content.length>1600))
   return NextResponse.json({error:"Invalid conversation history."},{status:400});
+ const totalHistory=history.reduce((sum,item)=>sum+(typeof item?.content==="string"?item.content.length:0),0);
+ if(totalHistory>6000)return NextResponse.json({error:"Please start a new practice to keep this conversation short."},{status:400});
 
+ let admin:ReturnType<typeof createAdminClient>|null=null;
+ let creditConsumed=false;
  try{
-  const ai=getOpenAI();
-  const moderationModel=process.env.OPENAI_MODERATION_MODEL??"omni-moderation-latest";
-  const inputCheck=await ai.moderations.create({model:moderationModel,input:message});
-  if(inputCheck.results[0]?.flagged)
-   return NextResponse.json({error:"This message cannot be processed. Please rephrase it as an English-learning exercise."},{status:400});
-
-  const {data:quota,error:quotaError}=await auth.supabase.rpc("consume_ai_credit");
+  // Quota is consumed before paid AI/moderation calls to prevent free abuse.
+  // All quota RPCs use the server-only service role; browser users cannot invoke refunds.
+  admin=createAdminClient();
+  const {data:quota,error:quotaError}=await admin.rpc("consume_ai_credit",{p_user_id:auth.user.id});
   if(quotaError)return NextResponse.json({error:"Usage limits are not configured. Please try again later."},{status:503});
   const q=Array.isArray(quota)?quota[0]:quota;
   if(!q?.allowed)return NextResponse.json({error:"You have used this month's included messages. Please view membership options to continue."},{status:402});
+  creditConsumed=true;
 
-  try{
-   const response=await ai.responses.create({
-    model:process.env.OPENAI_MODEL??"gpt-4.1-mini",
-    instructions:buildCoachInstructions(track,level),
-    input:[...history,{role:"user",content:message}],
-    max_output_tokens:450,
-    store:false,
-    text:{format:{type:"json_object"}}
-   });
-   const raw=response.output_text;
-   if(!raw)throw new Error("Empty model output");
-   const result=JSON.parse(raw) as {
-    reply?:string;
-    correction?:{original?:string;improved?:string;why?:string};
-    retry_prompt?:string;
-    skill_note?:string;
-   };
-   if(typeof result.reply!=="string"||result.reply.length>2400)throw new Error("Invalid output shape");
-
-   const moderationPayload=[
-    result.reply,result.correction?.original,result.correction?.improved,
-    result.correction?.why,result.retry_prompt,result.skill_note
-   ].filter(Boolean).join(" | ");
-   const outputCheck=await ai.moderations.create({model:moderationModel,input:moderationPayload});
-   const unsafe=!!outputCheck.results[0]?.flagged;
-
-   return NextResponse.json({
-    reply:unsafe?"Let's keep our practice focused on a safe, respectful English-learning topic. Please try a different example.":result.reply,
-    correction:unsafe?{original:"",improved:"",why:""}:{
-     original:typeof result.correction?.original==="string"?result.correction.original.slice(0,500):"",
-     improved:typeof result.correction?.improved==="string"?result.correction.improved.slice(0,500):"",
-     why:typeof result.correction?.why==="string"?result.correction.why.slice(0,700):""
-    },
-    retryPrompt:unsafe?"":typeof result.retry_prompt==="string"?result.retry_prompt.slice(0,500):"",
-    skillNote:unsafe?"":typeof result.skill_note==="string"?result.skill_note.slice(0,300):"",
-    remaining:q.remaining
-   },{headers:{"Cache-Control":"no-store"}});
-  }catch(inner){
-   await auth.supabase.rpc("refund_ai_credit");
-   throw inner;
+  const ai=getOpenAI();
+  const moderationModel=process.env.OPENAI_MODERATION_MODEL??"omni-moderation-latest";
+  const inputCheck=await ai.moderations.create({model:moderationModel,input:message});
+  if(inputCheck.results[0]?.flagged){
+   await admin.rpc("refund_ai_credit",{p_user_id:auth.user.id});
+   creditConsumed=false;
+   return NextResponse.json({error:"This message cannot be processed. Please rephrase it as an English-learning exercise."},{status:400});
   }
+
+  const response=await ai.responses.create({
+   model:process.env.OPENAI_MODEL??"gpt-4.1-mini",
+   instructions:buildCoachInstructions(track,level),
+   input:[...history,{role:"user",content:message}],
+   max_output_tokens:450,
+   store:false,
+   text:{format:{type:"json_object"}}
+  });
+  const raw=response.output_text;
+  if(!raw)throw new Error("Empty model output");
+  const result=JSON.parse(raw) as {
+   reply?:string;
+   correction?:{original?:string;improved?:string;why?:string};
+   retry_prompt?:string;
+   skill_note?:string;
+  };
+  if(typeof result.reply!=="string"||result.reply.length>2400)throw new Error("Invalid output shape");
+
+  const moderationPayload=[
+   result.reply,result.correction?.original,result.correction?.improved,
+   result.correction?.why,result.retry_prompt,result.skill_note
+  ].filter(Boolean).join(" | ");
+  const outputCheck=await ai.moderations.create({model:moderationModel,input:moderationPayload});
+  const unsafe=!!outputCheck.results[0]?.flagged;
+
+  const payload={
+   reply:unsafe?"Let's keep our practice focused on a safe, respectful English-learning topic. Please try a different example.":result.reply,
+   correction:unsafe?{original:"",improved:"",why:""}:{
+    original:typeof result.correction?.original==="string"?result.correction.original.slice(0,500):"",
+    improved:typeof result.correction?.improved==="string"?result.correction.improved.slice(0,500):"",
+    why:typeof result.correction?.why==="string"?result.correction.why.slice(0,700):""
+   },
+   retryPrompt:unsafe?"":typeof result.retry_prompt==="string"?result.retry_prompt.slice(0,500):"",
+   skillNote:unsafe?"":typeof result.skill_note==="string"?result.skill_note.slice(0,300):"",
+   remaining:q.remaining
+  };
+  creditConsumed=false;
+  return NextResponse.json(payload,{headers:{"Cache-Control":"no-store"}});
  }catch(error){
+  if(admin&&creditConsumed){
+   try{await admin.rpc("refund_ai_credit",{p_user_id:auth.user.id});}catch(refundError){console.error("AI credit refund failed:",refundError instanceof Error?refundError.message:"unknown");}
+  }
   console.error("Coach request failed:",error instanceof Error?error.message:"unknown error");
-  return NextResponse.json({error:"The coach is temporarily unavailable. Your message was not saved; please try again."},{status:503,headers:{"Cache-Control":"no-store"}});
+  return NextResponse.json({error:"The coach is temporarily unavailable. Please try again."},{status:503,headers:{"Cache-Control":"no-store"}});
  }
 }
