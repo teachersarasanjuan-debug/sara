@@ -78,7 +78,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
   let voiceChannel = null;
   let voiceAudio = null;
   let voiceLimitTimer = null;
-  let voiceTranscriptBuffer = "";
 
   function setVoiceStatus(message, live = false) {
     if (!voiceStatus) return;
@@ -137,6 +136,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     });
     title.textContent = modes[mode].title;
     goal.textContent = modes[mode].goal;
+    if (voiceControls) voiceControls.hidden = !realtimeVoiceEnabled || mode === "young";
+    if (voicePeer) void stopVoiceSession("Practice track changed. The microphone has been disconnected.");
     if (mode === "young") {
       level.innerHTML = '<option value="Pre-A1">Pre-A1 · Starter</option><option value="A1">A1 · Beginner</option><option value="A2">A2 · Elementary</option>';
     } else if (mode === "business") {
@@ -293,8 +294,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
         usageFill.style.width = Math.min(100, limit > 0 ? (used / limit) * 100 : 0) + "%";
         const plan = statusData.paid ? "Paid subscription" : "Free access";
         planLabel.textContent = plan;
-        realtimeVoiceEnabled = statusData.voiceEnabled === true && statusData.paid === true && mode !== "young";
-        if (voiceControls) voiceControls.hidden = !realtimeVoiceEnabled;
+        realtimeVoiceEnabled = statusData.voiceEnabled === true && statusData.paid === true;
+        if (voiceControls) voiceControls.hidden = !realtimeVoiceEnabled || mode === "young";
         if (!realtimeVoiceEnabled) {
           voiceStartButton.hidden = true;
           voiceStopButton.hidden = true;
@@ -302,7 +303,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
         } else if (!voicePeer) {
           voiceStartButton.hidden = false;
           voiceStopButton.hidden = true;
-          setVoiceStatus("Voice practice is ready. Start only when you are somewhere private.");
+          const voiceUsed = Number(statusData.voiceUsage?.used ?? 0);
+          const voiceLimit = Number(statusData.voiceUsage?.limit ?? 12);
+          setVoiceStatus("Voice practice ready · " + voiceUsed + " of " + voiceLimit + " monthly sessions used. Start only somewhere private.");
         }
         paidPlanConfigured = statusData.checkoutConfigured === true && !statusData.paid;
         upgradeButton.hidden = !paidPlanConfigured;
@@ -455,7 +458,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
         let payload;
         try { payload = JSON.parse(event.data); } catch (_) { return; }
         if (payload.type === "conversation.item.input_audio_transcription.completed" && payload.transcript) {
-          voiceTranscriptBuffer = payload.transcript;
           addMessage("learner", "YOU SAID", payload.transcript);
         }
         if (payload.type === "response.output_audio_transcript.done" && payload.transcript) {
@@ -484,7 +486,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 
       voiceStartButton.hidden = true;
       voiceStopButton.hidden = false;
-      setVoiceStatus("You're connected. Speak naturally; press End session when finished. This session ends automatically after 8 minutes.", true);
+      setVoiceStatus("You're connected. Speak naturally; press End session when finished. This session ends automatically after 8 minutes. Your microphone is live.", true);
+      voicePeer.onconnectionstatechange = () => {
+        if (!voicePeer) return;
+        if (["failed", "closed"].includes(voicePeer.connectionState)) {
+          void stopVoiceSession("The voice connection ended. Your microphone has been disconnected.");
+        }
+      };
       if (voiceChannel.readyState === "open") {
         voiceChannel.send(JSON.stringify({
           type: "response.create",
@@ -523,7 +531,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     voicePeer = null;
     voiceStream = null;
     voiceAudio = null;
-    voiceTranscriptBuffer = "";
     if (voiceStartButton) voiceStartButton.hidden = !realtimeVoiceEnabled;
     if (voiceStopButton) voiceStopButton.hidden = true;
     if (message) setVoiceStatus(message);
