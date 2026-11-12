@@ -64,14 +64,14 @@ async function syncSubscription(admin: any, subscription: any) {
   if (!userId || !customerId || !subscription.id) throw new Error("subscription_missing_customer_or_user");
 
   await admin.from("billing_customers").upsert({
-    owner_id: userId,
+    user_id: userId,
     stripe_customer_id: customerId,
     updated_at: new Date().toISOString(),
   });
 
   const firstPrice = subscription.items?.data?.[0]?.price;
   const row = {
-    user_id: userId,
+    owner_id: userId,
     stripe_customer_id: customerId,
     stripe_subscription_id: subscription.id,
     stripe_price_id: firstPrice?.id ?? null,
