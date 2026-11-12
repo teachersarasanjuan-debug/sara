@@ -1,5 +1,6 @@
 "use client";
-import {useState} from "react";\nimport type { FormEvent } from "react";
+import {useState} from "react";
+import type { FormEvent } from "react";
 type Track="cambridge"|"business";
 type Message={role:"coach"|"learner";text:string;correction?:{original:string;improved:string;why:string};retryPrompt?:string;skillNote?:string};
 export default function Coach(){
