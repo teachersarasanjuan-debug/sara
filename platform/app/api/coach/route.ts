@@ -50,7 +50,7 @@ export async function POST(request:Request){
 
   const ai=getOpenAI();
   const moderationModel=process.env.OPENAI_MODERATION_MODEL??"omni-moderation-latest";
-  const learnerContext=[...history.filter(item=>item.role==="user").map(item=>item.content),message].join("\\n");
+  const learnerContext=[...history.filter(item=>item.role==="user").map(item=>item.content),message].join("\n");
   const inputCheck=await ai.moderations.create({model:moderationModel,input:learnerContext});
   if(inputCheck.results[0]?.flagged){
    await admin.rpc("refund_ai_credit",{p_user_id:auth.user.id});
