@@ -1,0 +1,47 @@
+name: Teacher Sara AI checks
+
+on:
+  pull_request:
+    paths:
+      - "ai-platform/**"
+      - ".github/workflows/teacher-sara-ai-checks.yml"
+  push:
+    branches:
+      - "feature/teacher-sara-ai-first-prototype"
+    paths:
+      - "ai-platform/**"
+      - ".github/workflows/teacher-sara-ai-checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai-platform
+    env:
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXT_PUBLIC_SUPABASE_URL: https://example-project.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: build-placeholder-only
+      AI_GATEWAY_MODEL: openai/gpt-5.5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ai-platform/package.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build Next.js application
+        run: npm run build
