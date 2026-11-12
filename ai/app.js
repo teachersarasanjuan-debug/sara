@@ -78,6 +78,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
   let voiceChannel = null;
   let voiceAudio = null;
   let voiceLimitTimer = null;
+  let voiceCloseTimer = null;
+  let voiceCloseResolver = null;
+  let voiceClosing = false;
 
   function setVoiceStatus(message, live = false) {
     if (!voiceStatus) return;
@@ -463,6 +466,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
         if (payload.type === "response.output_audio_transcript.done" && payload.transcript) {
           addMessage("coach", "TEACHER SARA AI · VOICE", payload.transcript);
         }
+        if (payload.type === "session.closed") {
+          if (voiceCloseResolver) voiceCloseResolver();
+          return;
+        }
         if (payload.type === "error") {
           setVoiceStatus("Voice service reported a problem. End this session and try again.", false);
         }
@@ -516,11 +523,32 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
   }
 
   async function stopVoiceSession(message = "Voice session ended. Your microphone has been disconnected.") {
+    if (voiceClosing) return;
+    voiceClosing = true;
     if (voiceLimitTimer) {
       window.clearTimeout(voiceLimitTimer);
       voiceLimitTimer = null;
     }
-    try { voiceChannel?.close(); } catch (_) {}
+    const channel = voiceChannel;
+    if (channel && channel.readyState === "open") {
+      setVoiceStatus("Closing the voice session safely…");
+      await new Promise(resolve => {
+        voiceCloseResolver = resolve;
+        voiceCloseTimer = window.setTimeout(resolve, 12000);
+        try {
+          // Ask the Realtime service to close and emit its final usage event before disconnecting.
+          channel.send(JSON.stringify({ type: "session.close" }));
+        } catch (_) {
+          resolve();
+        }
+      });
+    }
+    if (voiceCloseTimer) {
+      window.clearTimeout(voiceCloseTimer);
+      voiceCloseTimer = null;
+    }
+    voiceCloseResolver = null;
+    try { channel?.close(); } catch (_) {}
     try { voicePeer?.close(); } catch (_) {}
     voiceStream?.getTracks().forEach(track => track.stop());
     if (voiceAudio) {
@@ -533,6 +561,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     voiceAudio = null;
     if (voiceStartButton) voiceStartButton.hidden = !realtimeVoiceEnabled;
     if (voiceStopButton) voiceStopButton.hidden = true;
+    voiceClosing = false;
     if (message) setVoiceStatus(message);
     if (supabase && session) await refreshAccountStatus();
   }
