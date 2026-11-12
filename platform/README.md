@@ -52,7 +52,7 @@ Connect the Supabase, Vercel and Stripe apps to the working environment. The use
 1. Create an API project and separate API billing account.
 2. Set an account usage budget/alerts.
 3. Add OPENAI_API_KEY only to Vercel server environment variables.
-4. Use a supported model identifier in OPENAI_MODEL and OPENAI_REALTIME_MODEL.
+4. Use a supported model identifier in OPENAI_MODEL and OPENAI_REALTIME_MODEL (default: gpt-realtime-2.1-mini).
 5. Test cost per session, moderation, response quality and latency before inviting users.
 
 ### E. Stripe
