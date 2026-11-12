@@ -64,7 +64,7 @@ async function syncSubscription(admin: any, subscription: any) {
   if (!userId || !customerId || !subscription.id) throw new Error("subscription_missing_customer_or_user");
 
   await admin.from("billing_customers").upsert({
-    user_id: userId,
+    owner_id: userId,
     stripe_customer_id: customerId,
     updated_at: new Date().toISOString(),
   });
@@ -75,7 +75,7 @@ async function syncSubscription(admin: any, subscription: any) {
     stripe_customer_id: customerId,
     stripe_subscription_id: subscription.id,
     stripe_price_id: firstPrice?.id ?? null,
-    plan_key: "individual",
+    plan_key: "individual_monthly",
     status: subscription.status,
     current_period_end: subscription.current_period_end
       ? new Date(subscription.current_period_end * 1000).toISOString()
@@ -83,7 +83,7 @@ async function syncSubscription(admin: any, subscription: any) {
     cancel_at_period_end: subscription.cancel_at_period_end === true,
     updated_at: new Date().toISOString(),
   };
-  const { error } = await admin.from("subscriptions").upsert(row, { onConflict: "stripe_subscription_id" });
+  const { error } = await admin.from("subscriptions").upsert(row, { onConflict: "owner_id" });
   if (error) throw new Error("subscription_sync_failed");
 }
 
