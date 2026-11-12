@@ -1,3 +1,24 @@
 User-agent: *
 Allow: /
+
+# Search crawlers used by AI-assisted search experiences
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+# Traditional search engines that also power AI search features
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
 Sitemap: https://teachersara.es/sitemap.xml
