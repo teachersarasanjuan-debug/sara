@@ -62,12 +62,29 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
   const upgradeButton = document.getElementById("upgrade-button");
   const manageBillingButton = document.getElementById("manage-billing-button");
   const billingNote = document.getElementById("billing-note");
+  const voiceControls = document.getElementById("voice-controls");
+  const voiceStartButton = document.getElementById("voice-start-button");
+  const voiceStopButton = document.getElementById("voice-stop-button");
+  const voiceStatus = document.getElementById("voice-status");
 
   let mode = "cambridge";
   let turn = 0;
   let session = null;
   let conversation = [];
   let paidPlanConfigured = false;
+  let realtimeVoiceEnabled = false;
+  let voicePeer = null;
+  let voiceStream = null;
+  let voiceChannel = null;
+  let voiceAudio = null;
+  let voiceLimitTimer = null;
+  let voiceTranscriptBuffer = "";
+
+  function setVoiceStatus(message, live = false) {
+    if (!voiceStatus) return;
+    voiceStatus.textContent = message;
+    voiceStatus.classList.toggle("voice-live", live);
+  }
 
   function setAuthMessage(message, isError = false) {
     if (!authStatus) return;
@@ -276,6 +293,17 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
         usageFill.style.width = Math.min(100, limit > 0 ? (used / limit) * 100 : 0) + "%";
         const plan = statusData.paid ? "Paid subscription" : "Free access";
         planLabel.textContent = plan;
+        realtimeVoiceEnabled = statusData.voiceEnabled === true && statusData.paid === true && mode !== "young";
+        if (voiceControls) voiceControls.hidden = !realtimeVoiceEnabled;
+        if (!realtimeVoiceEnabled) {
+          voiceStartButton.hidden = true;
+          voiceStopButton.hidden = true;
+          setVoiceStatus("Live voice practice is available on eligible paid plans once enabled.");
+        } else if (!voicePeer) {
+          voiceStartButton.hidden = false;
+          voiceStopButton.hidden = true;
+          setVoiceStatus("Voice practice is ready. Start only when you are somewhere private.");
+        }
         paidPlanConfigured = statusData.checkoutConfigured === true && !statusData.paid;
         upgradeButton.hidden = !paidPlanConfigured;
         manageBillingButton.hidden = !statusData.paid;
@@ -382,6 +410,126 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     }
   }
 
+  async function startVoiceSession() {
+    if (!supabase || !session) {
+      setVoiceStatus("Please sign in first.");
+      return;
+    }
+    if (mode === "young") {
+      setVoiceStatus("Live voice chat is disabled for the young learner track.");
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
+      setVoiceStatus("This browser does not support secure microphone sessions. Try a recent browser over HTTPS.");
+      return;
+    }
+
+    voiceStartButton.disabled = true;
+    setVoiceStatus("Requesting a secure speaking session…");
+    try {
+      const { data, error } = await supabase.functions.invoke("realtime-token", {
+        body: { track: mode === "cambridge" ? "cambridge" : mode, level: level.value }
+      });
+      if (error) throw new Error(await showFunctionError(error));
+      if (!data?.value) throw new Error(data?.message || "A voice session could not be created.");
+
+      voiceStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
+      voicePeer = new RTCPeerConnection();
+      voiceAudio = new Audio();
+      voiceAudio.autoplay = true;
+      voiceAudio.playsInline = true;
+      voicePeer.ontrack = async event => {
+        if (event.streams?.[0]) {
+          voiceAudio.srcObject = event.streams[0];
+          try { await voiceAudio.play(); } catch (_) {
+            setVoiceStatus("Allow audio playback in your browser to hear the tutor.", true);
+          }
+        }
+      };
+
+      voiceStream.getTracks().forEach(track => voicePeer.addTrack(track, voiceStream));
+      voiceChannel = voicePeer.createDataChannel("oai-events");
+      voiceChannel.onmessage = event => {
+        let payload;
+        try { payload = JSON.parse(event.data); } catch (_) { return; }
+        if (payload.type === "conversation.item.input_audio_transcription.completed" && payload.transcript) {
+          voiceTranscriptBuffer = payload.transcript;
+          addMessage("learner", "YOU SAID", payload.transcript);
+        }
+        if (payload.type === "response.output_audio_transcript.done" && payload.transcript) {
+          addMessage("coach", "TEACHER SARA AI · VOICE", payload.transcript);
+        }
+        if (payload.type === "error") {
+          setVoiceStatus("Voice service reported a problem. End this session and try again.", false);
+        }
+      };
+
+      const offer = await voicePeer.createOffer();
+      await voicePeer.setLocalDescription(offer);
+      const answerResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + data.value,
+          "Content-Type": "application/sdp"
+        },
+        body: offer.sdp
+      });
+      if (!answerResponse.ok) {
+        const detail = await answerResponse.text();
+        throw new Error("The voice connection could not be completed (" + answerResponse.status + ").");
+      }
+      await voicePeer.setRemoteDescription({ type: "answer", sdp: await answerResponse.text() });
+
+      voiceStartButton.hidden = true;
+      voiceStopButton.hidden = false;
+      setVoiceStatus("You're connected. Speak naturally; press End session when finished. This session ends automatically after 8 minutes.", true);
+      if (voiceChannel.readyState === "open") {
+        voiceChannel.send(JSON.stringify({
+          type: "response.create",
+          response: { instructions: "Start with a short, friendly greeting and ask one opening question for this learner's selected practice track. Keep your spoken response brief." }
+        }));
+      } else {
+        voiceChannel.addEventListener("open", () => {
+          voiceChannel?.send(JSON.stringify({
+            type: "response.create",
+            response: { instructions: "Start with a short, friendly greeting and ask one opening question for this learner's selected practice track. Keep your spoken response brief." }
+          }));
+        }, { once: true });
+      }
+      voiceLimitTimer = window.setTimeout(() => stopVoiceSession("This voice session has reached its 8-minute limit."), 8 * 60 * 1000);
+    } catch (error) {
+      await stopVoiceSession();
+      setVoiceStatus(error.message || "Unable to start the voice session. No further charge has been taken.");
+    } finally {
+      voiceStartButton.disabled = false;
+    }
+  }
+
+  async function stopVoiceSession(message = "Voice session ended. Your microphone has been disconnected.") {
+    if (voiceLimitTimer) {
+      window.clearTimeout(voiceLimitTimer);
+      voiceLimitTimer = null;
+    }
+    try { voiceChannel?.close(); } catch (_) {}
+    try { voicePeer?.close(); } catch (_) {}
+    voiceStream?.getTracks().forEach(track => track.stop());
+    if (voiceAudio) {
+      voiceAudio.pause();
+      voiceAudio.srcObject = null;
+    }
+    voiceChannel = null;
+    voicePeer = null;
+    voiceStream = null;
+    voiceAudio = null;
+    voiceTranscriptBuffer = "";
+    if (voiceStartButton) voiceStartButton.hidden = !realtimeVoiceEnabled;
+    if (voiceStopButton) voiceStopButton.hidden = true;
+    if (message) setVoiceStatus(message);
+    if (supabase && session) await refreshAccountStatus();
+  }
+
   async function openBillingPortal() {
     if (!supabase || !session) return;
     manageBillingButton.disabled = true;
@@ -411,10 +559,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     if (!supabase) return;
     const { error } = await supabase.auth.signOut();
     if (error) setBillingMessage("Unable to sign out. Please try again.");
-    else await updateAuthView(null);
+    else {
+      await stopVoiceSession("Signed out. The microphone is disconnected.");
+      await updateAuthView(null);
+    }
   });
   upgradeButton?.addEventListener("click", startCheckout);
   manageBillingButton?.addEventListener("click", openBillingPortal);
+  voiceStartButton?.addEventListener("click", startVoiceSession);
+  voiceStopButton?.addEventListener("click", () => stopVoiceSession());
 
   if (supabase) {
     supabase.auth.onAuthStateChange((_event, nextSession) => {
@@ -424,6 +577,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
   } else {
     authCard.hidden = false;
     accountCard.hidden = true;
+    if (voiceControls) voiceControls.hidden = true;
     setAuthMessage("Secure accounts and paid subscriptions will activate after the Supabase server and Stripe products are configured.");
   }
 
