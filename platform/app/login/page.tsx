@@ -1,5 +1,6 @@
 "use client";
-import {useState} from "react";\nimport type { FormEvent } from "react";
+import {useState} from "react";
+import type { FormEvent } from "react";
 import Link from "next/link";
 import {createClient} from "@/lib/supabase/client";
 export default function LoginPage(){
