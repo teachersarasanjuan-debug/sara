@@ -35,7 +35,7 @@ Connect the Supabase, Vercel and Stripe apps to the working environment. The use
 ### B. Supabase
 1. Create a project in an EU region appropriate for the business.
 2. Run the SQL in supabase/migrations/001_initial.sql.
-3. Copy project URL and anon key into Vercel environment variables.
+3. Copy project URL and publishable key into Vercel environment variables.
 4. Set SUPABASE_SERVICE_ROLE_KEY as a server-only Vercel secret.
 5. In Authentication > URL Configuration, set the Site URL to the final app domain and add /auth/callback to Redirect URLs.
 6. Configure production email delivery for magic links.
@@ -86,8 +86,8 @@ These are provisional product guardrails. They need to be compared with actual A
 - Run supervised adult pilot sessions first. Do not claim official Cambridge scoring, recognised certification or guaranteed CEFR progress.
 
 ## Known incomplete items
-- Voice API token endpoint exists, but browser WebRTC voice UI is not implemented yet.
-- No speech transcript is retained and no pronunciation assessment is made.
+- Browser WebRTC voice UI and the server-minted ephemeral session token flow are implemented; verify on supported browsers and with a real paid test account.
+- Voice audio is streamed to OpenAI Realtime; the application does not store voice recordings. There is no separate pronunciation scoring or speech transcript report yet.
 - Teacher page shows account/usage metadata only; no student transcript monitoring.
 - Pricing amount is intentionally unset pending the user's decision.
 - Stripe webhook needs end-to-end test-mode verification and payment lifecycle review.
