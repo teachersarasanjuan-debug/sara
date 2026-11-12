@@ -311,13 +311,18 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
           const voiceLimit = Number(statusData.voiceUsage?.limit ?? 12);
           setVoiceStatus("Voice practice ready · " + voiceUsed + " of " + voiceLimit + " monthly sessions used. Start only somewhere private.");
         }
-        paidPlanConfigured = statusData.checkoutConfigured === true && !statusData.paid;
+        const hasBillingCustomer = statusData.hasBillingCustomer === true;
+        paidPlanConfigured = statusData.checkoutConfigured === true && !statusData.paid && !hasBillingCustomer;
         upgradeButton.hidden = !paidPlanConfigured;
-        manageBillingButton.hidden = !statusData.paid;
+        manageBillingButton.hidden = !hasBillingCustomer;
         if (!statusData.aiConfigured) {
           setBillingMessage("Your account is connected, but the live AI tutor is waiting for its secure server key. The sample lesson still works; no payment can be taken.");
+        } else if (statusData.subscription?.status === "past_due") {
+          setBillingMessage("Your last payment needs attention. Open Manage billing to update your payment method or review the subscription.");
         } else if (statusData.paid) {
           setBillingMessage("Your subscription is active. You can manage or cancel it through Stripe's secure billing portal.");
+        } else if (hasBillingCustomer) {
+          setBillingMessage("A previous subscription is linked to this account. Open Manage billing to review it or update payment details.");
         } else if (!statusData.checkoutConfigured) {
           setBillingMessage("The live tutor is configured for the free allowance. Paid checkout will appear after the plan price is approved and Stripe is connected.");
         }
