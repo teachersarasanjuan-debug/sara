@@ -1,10 +1,10 @@
 "use client";
-import {useState} from "react";
+import {useState} from "react";\nimport type { FormEvent } from "react";
 type Track="cambridge"|"business";
 type Message={role:"coach"|"learner";text:string;correction?:{original:string;improved:string;why:string};retryPrompt?:string;skillNote?:string};
 export default function Coach(){
  const[track,setTrack]=useState<Track>("cambridge"),[level,setLevel]=useState("B1"),[messages,setMessages]=useState<Message[]>([]),[input,setInput]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");
- async function send(e:React.FormEvent<HTMLFormElement>){e.preventDefault();const text=input.trim();if(!text||busy)return;setInput("");setError("");
+ async function send(e:FormEvent<HTMLFormElement>){e.preventDefault();const text=input.trim();if(!text||busy)return;setInput("");setError("");
  const history=messages.slice(-8).map(m=>({role:m.role==="coach"?"assistant" as const:"user" as const,content:m.text}));
  setMessages(old=>[...old,{role:"learner",text}]);setBusy(true);
  try{const res=await fetch("/api/coach",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({track,level,message:text,history})});const data=await res.json();if(!res.ok)throw new Error(data.error??"The coach could not respond.");setMessages(old=>[...old,{role:"coach",text:data.reply,correction:data.correction,retryPrompt:data.retryPrompt,skillNote:data.skillNote}]);}
