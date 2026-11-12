@@ -1,5 +1,5 @@
 "use client";
-import {useRef,useState} from "react";
+import {useEffect,useRef,useState} from "react";
 
 type Track="cambridge"|"business";
 export default function VoiceCoach({canUse}:{canUse:boolean}){
@@ -10,7 +10,7 @@ export default function VoiceCoach({canUse}:{canUse:boolean}){
  const pcRef=useRef<RTCPeerConnection|null>(null);
  const streamRef=useRef<MediaStream|null>(null);
  const audioRef=useRef<HTMLAudioElement|null>(null);
- async function stop(){
+ useEffect(()=>()=>{pcRef.current?.close();streamRef.current?.getTracks().forEach(track=>track.stop());if(audioRef.current){audioRef.current.pause();audioRef.current.srcObject=null;}},[]);\n async function stop(){
   pcRef.current?.getSenders().forEach(sender=>sender.track?.stop());
   pcRef.current?.close();pcRef.current=null;
   streamRef.current?.getTracks().forEach(track=>track.stop());streamRef.current=null;
