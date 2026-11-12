@@ -50,3 +50,16 @@
 .voice-live{color:#b8e1c5!important}
 
 .adult-consent{display:flex;align-items:flex-start;gap:9px;margin:4px 0 2px;color:#64766e;font-size:10px;line-height:1.6}.adult-consent input{margin:2px 0 0;accent-color:var(--green);flex:0 0 auto}.adult-consent a{color:var(--green);font-weight:700;text-decoration:underline}
+
+
+/* Learner difficulty feedback and session timer. */
+.session-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.session-timer{font-size:10px;color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums}
+.level-check{margin:14px 0 16px;padding:13px 15px;border:1px solid var(--line);border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.level-check-label{font-size:9px;letter-spacing:.12em;font-weight:800;color:#75857f}
+.level-check-actions{display:flex;gap:6px;flex-wrap:wrap}
+.level-check-actions button{border:1px solid var(--line);background:#fff;color:#52665f;border-radius:999px;padding:7px 11px;font:600 10px "DM Sans",sans-serif;cursor:pointer}
+.level-check-actions button:hover,.level-check-actions button.selected{border-color:#83ad99;background:var(--mint);color:var(--green-dark)}
+.level-check-actions button:focus-visible{outline:3px solid rgba(23,107,87,.25);outline-offset:2px}
+.level-check p{width:100%;margin:0;color:var(--muted);font-size:10px}
+@media(max-width:640px){.level-check{align-items:flex-start}.level-check-actions{width:100%}.level-check-actions button{flex:1}.session-meta{gap:6px}.session-timer{font-size:9px}}
