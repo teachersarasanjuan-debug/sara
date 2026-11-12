@@ -76,8 +76,10 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
     if (quotaError) return json({ error: "voice_usage_check_failed" }, 500);
     if (allowed !== true) return json({ error: "voice_monthly_limit_reached", message: "You've used this month's voice-session allowance." }, 402);
 
-    const model = Deno.env.get("OPENAI_REALTIME_MODEL") ?? "gpt-realtime";
-    const createResponse = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
+    const model = Deno.env.get("OPENAI_REALTIME_MODEL") ?? "gpt-realtime-2.1-mini";
+    let createResponse: Response;
+    try {
+      createResponse = await fetch("https://api.openai.com/v1/realtime/client_secrets", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${openAiKey}`,
@@ -85,7 +87,7 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
         "OpenAI-Safety-Identifier": await safetyIdentifier(userId),
       },
       body: JSON.stringify({
-        expires_after: { anchor: "created_at", seconds: 600 },
+        expires_after: { anchor: "created_at", seconds: 60 },
         session: {
           type: "realtime",
           model,
@@ -102,16 +104,25 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
           tracing: null,
         },
       }),
-    });
+      });
+    } catch (error) {
+      console.error("Realtime client secret network failure", String(error).slice(0, 300));
+      await ctx.supabaseAdmin.rpc("refund_voice_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
+      return json({ error: "voice_session_creation_failed", message: "A voice session could not be started. Your session credit has been returned." }, 502);
+    }
     if (!createResponse.ok) {
       const details = await createResponse.text();
       console.error("Realtime client secret creation failed", createResponse.status, details.slice(0, 500));
-      return json({ error: "voice_session_creation_failed", message: "A voice session could not be started. Please try again." }, 502);
+      await ctx.supabaseAdmin.rpc("refund_voice_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
+      return json({ error: "voice_session_creation_failed", message: "A voice session could not be started. Your session credit has been returned." }, 502);
     }
     const result = await createResponse.json();
-    if (!result?.value) return json({ error: "voice_token_missing" }, 502);
+    if (!result?.value) {
+      await ctx.supabaseAdmin.rpc("refund_voice_credit", { p_user_id: userId, p_month_start: monthStartUtc() });
+      return json({ error: "voice_token_missing" }, 502);
+    }
 
-    // This short-lived client secret is safe to return to the browser. The permanent API key is not.
+    // The client secret is short-lived, but started sessions can outlive it. Voice remains disabled by default until server-side session-cost controls are verified.
     return json({ value: result.value, expiresAt: result.expires_at, model, maxSessionSeconds: 480 });
   });
 
