@@ -17,7 +17,7 @@ export async function POST(request:Request){
    if(uid&&customer){const result=await db.from("profiles").update({stripe_customer_id:customer}).eq("id",uid);if(result.error)throw result.error;}
    if(uid&&session.subscription){
     const subResponse=await getStripe().subscriptions.retrieve(String(session.subscription));
-    const sub=subResponse.data;
+    const sub=subResponse;
     const status=sub.status;
     const result=await db.from("profiles").update({stripe_customer_id:customer,stripe_subscription_id:sub.id,subscription_status:status,plan:status==="active"||status==="trialing"?"pro":"free",current_period_end:new Date((sub.items.data[0]?.current_period_end??Math.floor(Date.now()/1000))*1000).toISOString()}).eq("id",uid);
     if(result.error)throw result.error;
