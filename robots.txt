@@ -1,3 +1,32 @@
 User-agent: *
 Allow: /
+
+# Search crawlers used by AI-assisted search experiences
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+# Traditional search engines that also power AI search features
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+# Search access is separate from model-training access.
+# Keep search and user-requested retrieval available while opting out of training crawlers.
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
 Sitemap: https://teachersara.es/sitemap.xml
