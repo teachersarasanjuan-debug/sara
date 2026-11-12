@@ -38,3 +38,13 @@
 .account-footnote span{color:#c09a5b;font-size:11px}
 [hidden]{display:none!important}
 @media(max-width:700px){.account-grid{grid-template-columns:1fr}.account-card{padding:21px 19px}.account-card h2{font-size:22px}}
+
+.voice-controls{border-top:1px solid rgba(255,255,255,.16);padding-top:16px;margin-top:16px}
+.voice-controls>div:first-child strong,.voice-controls>div:first-child small{display:block}
+.voice-controls>div:first-child strong{font:700 13px Manrope;color:#fff}
+.voice-controls>div:first-child small{font-size:9px;color:#c5dbcf;margin-top:3px}
+.voice-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+.voice-actions .button{font-size:10px;padding:10px 13px}
+.voice-stop{background:#8d443a;color:#fff;border:1px solid rgba(255,255,255,.15)}
+.voice-status{font-size:9px;color:#c5dbcf;line-height:1.6;margin:9px 0 0;min-height:16px}
+.voice-live{color:#b8e1c5!important}
