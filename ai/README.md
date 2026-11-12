@@ -11,6 +11,7 @@
 - Stripe-hosted subscription Checkout, subscription status, customer portal and signature-verified webhook code.
 - Realtime voice-token function using short-lived credentials. **Voice is disabled by default** until cost and privacy checks are complete.
 - Parent-owned learner-profile data structure. **Live child AI is disabled**; there are no child chat accounts in this pilot.
+- The sign-up age check is a self-declaration checkbox, not robust age verification. Treat the pilot as invite-only for known adults; never permit a child to use an adult account.
 - Row-level security on all 10 public tables, explicit grants, service-role-only usage/billing tables, and atomic quota RPCs.
 - No lesson transcript or voice recording is written to the Teacher Sara database. Text is sent to OpenAI to generate the tutor response; usage counters are stored.
 
@@ -56,6 +57,8 @@ In **Authentication → URL Configuration**:
 - Add redirect URL: `https://www.teachersara.es/ai/`
 
 Keep email confirmation enabled. Configure a production email sender/SMTP before inviting the public; default test email delivery is not a production mail service.
+
+The adult-only checkbox is an attestation only. It does not verify identity or age, so do not use it as a child-safeguarding control.
 
 ### 2. Add server-side Function secrets
 
