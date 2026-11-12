@@ -62,7 +62,7 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
 
     const { data: subscription, error: subError } = await ctx.supabase
       .from("subscriptions").select("status,current_period_end")
-      .eq("user_id", userId).in("status", ["active", "trialing"])
+      .eq("owner_id", userId).in("status", ["active", "trialing"])
       .order("current_period_end", { ascending: false }).limit(1).maybeSingle();
     if (subError) return json({ error: "subscription_check_failed" }, 500);
     const paid = !!subscription && ["active", "trialing"].includes(subscription.status) &&
