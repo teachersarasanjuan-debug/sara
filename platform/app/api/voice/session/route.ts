@@ -1,7 +1,7 @@
 import {NextResponse} from "next/server";
 import {getCurrentUser} from "@/lib/auth";
 import {createAdminClient} from "@/lib/supabase/admin";
-import {buildVoiceInstructions,type Track} from "@/lib/coach-prompts";
+import {buildVoiceInstructions,isValidScenario,type Track,type Scenario} from "@/lib/coach-prompts";
 import {createHash} from "node:crypto";
 import {sameOrigin} from "@/lib/security";
 
@@ -16,10 +16,10 @@ export async function POST(request:Request){
  if(!profile||!["active","trialing"].includes(profile.subscription_status))
   return NextResponse.json({error:"Voice practice is a paid-member feature."},{status:402});
 
- let body:{track?:string;level?:string;sdp?:string};
+ let body:{track?:string;level?:string;scenario?:string;sdp?:string};
  try{body=await request.json();}catch{return NextResponse.json({error:"Invalid request."},{status:400});}
- const track=body.track as Track,level=body.level??"B1",sdp=typeof body.sdp==="string"?body.sdp:"";
- if(!["cambridge","business"].includes(track)||!["A2","B1","B2","C1"].includes(level))
+ const track=body.track as Track,level=body.level??"B1",scenario=(body.scenario??(track==="business"?"project-update":"personal-response")) as Scenario,sdp=typeof body.sdp==="string"?body.sdp:"";
+ if(!["cambridge","business"].includes(track)||!["A2","B1","B2","C1"].includes(level)||!isValidScenario(track,scenario))
   return NextResponse.json({error:"Unsupported voice settings."},{status:400});
  if(sdp.length<100||sdp.length>100000)
   return NextResponse.json({error:"The browser did not provide a valid voice connection offer."},{status:400});
@@ -39,7 +39,7 @@ export async function POST(request:Request){
    type:"realtime",
    model:process.env.OPENAI_REALTIME_MODEL??"gpt-realtime-2.1-mini",
    audio:{input:{transcription:{model:"gpt-transcribe",language:"en"},turn_detection:{type:"server_vad",threshold:0.5,prefix_padding_ms:300,silence_duration_ms:600}},output:{voice:"marin"}},
-   instructions:buildVoiceInstructions(track,level)
+   instructions:buildVoiceInstructions(track,level,scenario)
   };
   const form=new FormData();
   form.set("sdp",sdp);
