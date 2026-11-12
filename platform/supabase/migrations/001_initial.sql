@@ -141,12 +141,17 @@ revoke insert,update,delete on public.learning_notes from anon,authenticated;
 
 create or replace function public.set_learning_notes_consent(p_user_id uuid,p_enabled boolean)
 returns boolean language plpgsql security definer set search_path = ''
-as $$
+as $
+declare changed boolean;
 begin
  update public.profiles set share_learning_notes=p_enabled,updated_at=now() where id=p_user_id;
- return found;
+ changed:=found;
+ if changed and not p_enabled then
+  delete from public.learning_notes where user_id=p_user_id;
+ end if;
+ return changed;
 end;
-$$;
+$;
 
 create or replace function public.save_learning_note(p_user_id uuid,p_track text,p_scenario text,p_level text,p_note text)
 returns boolean language plpgsql security definer set search_path = ''
