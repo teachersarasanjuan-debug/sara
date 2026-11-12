@@ -145,7 +145,7 @@
       <div class="practice-panel">
         <div class="panel-head">
           <div><span class="panel-overline">YOUR PRACTICE SESSION</span><h3 id="session-title">Cambridge speaking practice</h3></div>
-          <span class="sample-badge">SAMPLE</span>
+          <div class="session-meta"><span class="sample-badge" id="session-mode-badge">SAMPLE</span><span class="session-timer" id="session-timer" role="timer" aria-live="off">Ready · 8:00</span></div>
         </div>
         <div class="setup-grid">
           <label>YOUR LEVEL
@@ -161,6 +161,7 @@
           </label>
         </div>
         <div class="objective-box"><span class="objective-icon">◎</span><div><small>YOUR LEARNING GOAL</small><strong id="goal-text">Give a clear answer and support it with reasons and examples.</strong></div></div>
+        <div class="level-check" id="level-rating" aria-label="Rate the difficulty of this practice"><span class="level-check-label">HOW DOES THIS FEEL?</span><div class="level-check-actions"><button type="button" data-rating="too_easy" aria-pressed="false">Too easy</button><button type="button" data-rating="right_level" aria-pressed="true" class="selected">Just right</button><button type="button" data-rating="too_difficult" aria-pressed="false">Too difficult</button></div><p id="level-feedback" role="status">Your feedback helps tune the next question.</p></div>
         <div class="chat-area" id="chat-area" aria-live="polite">
           <div class="empty-state" id="empty-state">
             <div class="empty-spark">✳</div>
