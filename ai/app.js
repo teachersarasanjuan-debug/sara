@@ -337,9 +337,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
           upgradeButton.hidden = !paidPlanConfigured;
         }
       } finally {
-        input.disabled = false;
-        send.disabled = false;
-        input.focus();
+        const practiceExpired = Boolean(sessionEndsAt && Date.now() >= sessionEndsAt);
+        input.disabled = practiceExpired;
+        send.disabled = practiceExpired;
+        if (!practiceExpired) input.focus();
       }
       return;
     }
