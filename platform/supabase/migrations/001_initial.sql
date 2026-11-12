@@ -16,7 +16,8 @@ create table if not exists public.profiles (
   monthly_limit integer not null default 10 check (monthly_limit >= 0),
   usage_month date not null default date_trunc('month', now())::date,
   voice_sessions_used integer not null default 0 check (voice_sessions_used >= 0),
-  voice_usage_month date not null default date_trunc('month', now())::date,\n  share_learning_notes boolean not null default false,
+  voice_usage_month date not null default date_trunc('month', now())::date,
+  share_learning_notes boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
