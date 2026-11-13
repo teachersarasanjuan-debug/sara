@@ -54,7 +54,7 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
     let body: any;
     try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
     const action = String(body?.action ?? "");
-    const userId = ctx.userClaims?.sub;
+    const userId = ctx.userClaims?.id;
     const userEmail = ctx.userClaims?.email;
     if (!userId) return json({ error: "unauthorized" }, 401);
 
