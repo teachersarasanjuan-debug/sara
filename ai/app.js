@@ -274,7 +274,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
         const payload = await error.context.json();
         if (payload?.message) message = payload.message;
         if (payload?.error === "monthly_limit_reached") message = "You've used this month's free practice allowance. Choose a plan in your account area to continue.";
-        if (payload?.error === "ai_not_configured") message = "Your account is ready, but the AI service still needs its secure server configuration.";
+        if (payload?.error === "ai_not_configured") message = payload?.message || "The OpenAI API key is missing from Supabase Function Secrets.";
         if (payload?.error === "child_mode_not_enabled") message = "Real child accounts are not enabled yet. This is a sample activity only.";
       }
     } catch (_) { /* Keep the original service message. */ }
