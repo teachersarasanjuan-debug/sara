@@ -371,7 +371,19 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
         supabase.functions.invoke("billing", { body: { action: "status" } }),
         supabase.functions.invoke("billing", { body: { action: "plans" } })
       ]);
-      if (!statusError && statusData) {
+      if (statusError || !statusData) {
+        usageCount.textContent = "—";
+        usageFill.style.width = "0%";
+        planLabel.textContent = "Account details unavailable";
+        realtimeVoiceEnabled = false;
+        if (voiceControls) voiceControls.hidden = true;
+        upgradeButton.hidden = true;
+        manageBillingButton.hidden = true;
+        setBillingMessage("You're signed in, but we couldn't load your account details. Your sign-in is still active. Refresh this page to retry; no payment has been taken.");
+        return;
+      }
+
+      {
         const used = Number(statusData.usage?.used ?? 0);
         const limit = Number(statusData.usage?.limit ?? 10);
         usageCount.textContent = used + " / " + limit;
@@ -417,7 +429,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
         upgradeButton.hidden = !paidPlanConfigured;
       }
     } catch (error) {
-      setBillingMessage("We couldn't refresh your account details. Your access hasn't been changed.");
+      usageCount.textContent = "—";
+      usageFill.style.width = "0%";
+      planLabel.textContent = "Account details unavailable";
+      realtimeVoiceEnabled = false;
+      if (voiceControls) voiceControls.hidden = true;
+      upgradeButton.hidden = true;
+      manageBillingButton.hidden = true;
+      setBillingMessage("You're signed in, but account details could not be loaded. Refresh this page to retry. Your access has not been changed and no payment has been taken.");
     }
   }
 
