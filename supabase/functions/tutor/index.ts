@@ -120,8 +120,9 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
     if (!lastUser) return json({ error: "missing_user_message" }, 400);
 
     const openAiKey = Deno.env.get("OPENAI_API_KEY");
-    const model = Deno.env.get("OPENAI_MODEL");
-    if (!openAiKey || !model) return json({ error: "ai_not_configured", message: "The AI tutor is not connected yet. The sample lesson is still available." }, 503);
+    // The text model has a safe default, so only the server-side API key is required.
+    const model = Deno.env.get("OPENAI_MODEL") || "gpt-6.1-terra";
+    if (!openAiKey) return json({ error: "ai_not_configured", message: "The OpenAI API key is missing from Supabase Function Secrets. Add OPENAI_API_KEY there; no practice credit was used." }, 503);
 
     // Moderate learner input before generating a response. If moderation is unavailable, fail closed.
     let modRes: Response;
