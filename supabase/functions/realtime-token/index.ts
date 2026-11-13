@@ -54,11 +54,11 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
     const userId = ctx.userClaims?.id;
     if (!userId) return json({ error: "unauthorized" }, 401);
 
-    if (Deno.env.get("ENABLE_REALTIME_VOICE") !== "true") {
-      return json({ error: "voice_not_enabled", message: "Voice practice is not enabled for launch yet." }, 403);
+    if (Deno.env.get("ENABLE_REALTIME_VOICE") === "false") {
+      return json({ error: "voice_not_enabled", message: "Voice practice is temporarily disabled by the Teacher Sara team." }, 403);
     }
     const openAiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!openAiKey) return json({ error: "ai_not_configured" }, 503);
+    if (!openAiKey) return json({ error: "ai_not_configured", message: "The OpenAI API key is missing from Supabase Function Secrets. Add OPENAI_API_KEY there; no voice session was started." }, 503);
 
     let body: any;
     try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
@@ -69,16 +69,8 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
     }
     if (!["A2", "B1", "B2", "C1", "C2"].includes(level)) return json({ error: "invalid_level" }, 400);
 
-    const { data: subscription, error: subError } = await ctx.supabase
-      .from("subscriptions").select("status,current_period_end")
-      .eq("owner_id", userId).in("status", ["active", "trialing"])
-      .order("current_period_end", { ascending: false }).limit(1).maybeSingle();
-    if (subError) return json({ error: "subscription_check_failed" }, 500);
-    const paid = !!subscription && ["active", "trialing"].includes(subscription.status) &&
-      (!subscription.current_period_end || new Date(subscription.current_period_end).getTime() > Date.now());
-    if (!paid) return json({ error: "paid_plan_required", message: "Live voice practice is included with a paid Teacher Sara AI plan." }, 402);
-
-    const limit = Number(Deno.env.get("AI_VOICE_MONTHLY_SESSION_LIMIT") ?? "12");
+    // Free adult pilot voice access: enforce a monthly per-account cap instead of a paid-plan check.
+    const limit = Number(Deno.env.get("AI_VOICE_MONTHLY_SESSION_LIMIT") ?? "10");
     const { data: allowed, error: quotaError } = await ctx.supabaseAdmin.rpc("consume_voice_credit", {
       p_user_id: userId, p_month_start: monthStartUtc(), p_monthly_limit: limit,
     });
@@ -95,6 +87,7 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
         "Content-Type": "application/json",
         "OpenAI-Safety-Identifier": await safetyIdentifier(userId),
       },
+      signal: AbortSignal.timeout(10000),
       body: JSON.stringify({
         expires_after: { anchor: "created_at", seconds: 60 },
         session: {
@@ -131,8 +124,8 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
       return json({ error: "voice_token_missing" }, 502);
     }
 
-    // The client secret is short-lived, but started sessions can outlive it. Voice remains disabled by default until server-side session-cost controls are verified.
-    return json({ value: result.value, expiresAt: result.expires_at, model, maxSessionSeconds: 480 });
+    // Adult pilot sessions are capped in the browser at 3 minutes and limited to 10 starts per month by default.
+    return json({ value: result.value, expiresAt: result.expires_at, model, maxSessionSeconds: 180, monthlyLimit: limit });
   });
 
 export default {
