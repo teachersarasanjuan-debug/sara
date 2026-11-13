@@ -84,14 +84,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
   let sessionEndsAt = null;
   let paidPlanConfigured = false;
   let realtimeVoiceEnabled = false;
-  let voicePeer = null;
-  let voiceStream = null;
-  let voiceChannel = null;
-  let voiceAudio = null;
+  let browserRecognition = null;
+  let browserVoiceActive = false;
+  let browserVoiceWaiting = false;
   let voiceLimitTimer = null;
-  let voiceCloseTimer = null;
-  let voiceCloseResolver = null;
-  let voiceClosing = false;
 
   function setVoiceStatus(message, live = false) {
     if (!voiceStatus) return;
@@ -190,7 +186,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     title.textContent = modes[mode].title;
     goal.textContent = modes[mode].goal;
     if (voiceControls) voiceControls.hidden = !realtimeVoiceEnabled || mode === "young";
-    if (voicePeer) void stopVoiceSession("Practice track changed. The microphone has been disconnected.");
+    if (browserVoiceActive) void stopVoiceSession("Practice track changed. Voice practice has stopped.");
     if (mode === "young") {
       level.innerHTML = '<option value="Pre-A1">Pre-A1 · Starter</option><option value="A1">A1 · Beginner</option><option value="A2">A2 · Elementary</option>';
     } else if (mode === "business") {
@@ -331,12 +327,23 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
         ].filter(Boolean).join("\n");
         conversation.push({ role: "assistant", content: assistantContext });
         turn += 1;
+        if (browserVoiceActive) {
+          const spokenReply = [
+            result.reply,
+            result.encouragement ? "What worked: " + result.encouragement : "",
+            result.correction ? "One useful improvement: " + result.correction + ". " + (result.explanation || "") : "",
+            result.retryPrompt ? "Try it again: " + result.retryPrompt : "",
+            result.nextStep ? "Next step: " + result.nextStep : ""
+          ].filter(Boolean).join(" ");
+          speakBrowserTutorReply(spokenReply);
+        }
         await refreshAccountStatus();
       } catch (error) {
         if (requestSessionId === activeSessionId) {
           if (pending?.parentNode) pending.remove();
           const message = error?.message || "Something went wrong. Please try again.";
           addMessage("coach", "A QUICK NOTE", message);
+          if (browserVoiceActive) speakBrowserTutorReply(message);
           if (/monthly|allowance|plan|upgrade/i.test(message)) {
             setBillingMessage(message);
             upgradeButton.hidden = !paidPlanConfigured;
@@ -396,12 +403,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
           voiceStartButton.hidden = true;
           voiceStopButton.hidden = true;
           setVoiceStatus("Live voice practice is temporarily unavailable.");
-        } else if (!voicePeer) {
+        } else if (!browserVoiceActive) {
           voiceStartButton.hidden = false;
           voiceStopButton.hidden = true;
-          const voiceUsed = Number(statusData.voiceUsage?.used ?? 0);
-          const voiceLimit = Number(statusData.voiceUsage?.limit ?? 12);
-          setVoiceStatus("Free voice testing ready · " + voiceUsed + " of " + voiceLimit + " monthly sessions used. Each session is limited to 3 minutes. Start somewhere private.");
+          const repliesUsed = Number(statusData.usage?.used ?? 0);
+          const repliesLimit = Number(statusData.usage?.limit ?? 10);
+          setVoiceStatus("Free browser voice ready · " + repliesUsed + " of " + repliesLimit + " AI replies used this month. Speech uses your browser and device, not OpenAI Realtime audio.");
         }
         const hasBillingCustomer = statusData.hasBillingCustomer === true;
         paidPlanConfigured = statusData.checkoutConfigured === true && !statusData.paid && !hasBillingCustomer;
@@ -527,155 +534,152 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     }
   }
 
+  function speakBrowserTutorReply(text) {
+    if (!browserVoiceActive) return;
+    if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+      setVoiceStatus("Your browser cannot speak the tutor's reply. You can still read it on screen.", false);
+      browserVoiceWaiting = false;
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(String(text || "").slice(0, 1400));
+    utterance.lang = "en-GB";
+    utterance.rate = 0.94;
+    const voices = window.speechSynthesis.getVoices();
+    const britishVoice = voices.find(voice => /^en-GB/i.test(voice.lang));
+    if (britishVoice) utterance.voice = britishVoice;
+    utterance.onstart = () => setVoiceStatus("Teacher Sara AI is speaking…", true);
+    utterance.onend = () => {
+      if (!browserVoiceActive) return;
+      browserVoiceWaiting = false;
+      startBrowserRecognition();
+    };
+    utterance.onerror = () => {
+      if (!browserVoiceActive) return;
+      browserVoiceWaiting = false;
+      setVoiceStatus("The browser could not play the tutor's voice. Continuing with microphone practice.", false);
+      startBrowserRecognition();
+    };
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function startBrowserRecognition() {
+    if (!browserVoiceActive || browserVoiceWaiting) return;
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) {
+      setVoiceStatus("Speech-to-text is not available in this browser. Try the latest Microsoft Edge or Chrome, or use the text box.", false);
+      browserVoiceActive = false;
+      voiceStartButton.hidden = false;
+      voiceStopButton.hidden = true;
+      return;
+    }
+
+    try {
+      const recognition = new Recognition();
+      browserRecognition = recognition;
+      recognition.lang = "en-GB";
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.onstart = () => setVoiceStatus("Listening… speak naturally in English.", true);
+      recognition.onresult = event => {
+        const transcript = Array.from(event.results || [])
+          .filter(result => result.isFinal)
+          .map(result => result[0]?.transcript || "")
+          .join(" ")
+          .trim();
+        if (!transcript || !browserVoiceActive || browserVoiceWaiting) return;
+        browserVoiceWaiting = true;
+        setVoiceStatus("I heard you. Teacher Sara AI is preparing a reply…", false);
+        try { recognition.stop(); } catch (_) {}
+        void handleAnswer(transcript);
+      };
+      recognition.onerror = event => {
+        if (!browserVoiceActive) return;
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          browserVoiceActive = false;
+          if (voiceLimitTimer) window.clearTimeout(voiceLimitTimer);
+          voiceLimitTimer = null;
+          voiceStartButton.hidden = false;
+          voiceStopButton.hidden = true;
+          setVoiceStatus("Microphone permission was denied. Allow microphone access for teachersara.es in your browser settings, then try again.", false);
+        } else if (event.error === "no-speech") {
+          setVoiceStatus("I didn't hear anything. Listening again…", false);
+        } else if (event.error === "audio-capture") {
+          browserVoiceActive = false;
+          voiceStartButton.hidden = false;
+          voiceStopButton.hidden = true;
+          setVoiceStatus("No microphone was found. Check your microphone and try again.", false);
+        } else if (event.error === "network") {
+          browserVoiceActive = false;
+          voiceStartButton.hidden = false;
+          voiceStopButton.hidden = true;
+          setVoiceStatus("Your browser's speech-recognition service is unavailable. You can still practise using the text box.", false);
+        } else {
+          setVoiceStatus("Speech recognition stopped (" + event.error + "). Try speaking again or use the text box.", false);
+        }
+      };
+      recognition.onend = () => {
+        if (browserRecognition === recognition) browserRecognition = null;
+        if (!browserVoiceActive || browserVoiceWaiting) return;
+        window.setTimeout(() => {
+          if (browserVoiceActive && !browserVoiceWaiting) startBrowserRecognition();
+        }, 500);
+      };
+      recognition.start();
+    } catch (error) {
+      browserVoiceActive = false;
+      voiceStartButton.hidden = false;
+      voiceStopButton.hidden = true;
+      setVoiceStatus(error?.message || "The browser could not start speech recognition. Check microphone permissions.", false);
+    }
+  }
+
   async function startVoiceSession() {
     if (!supabase || !session) {
       setVoiceStatus("Please sign in first.");
       return;
     }
     if (mode === "young") {
-      setVoiceStatus("Live voice chat is disabled for the young learner track.");
+      setVoiceStatus("Live voice practice is disabled for the young learner track.");
       return;
     }
-    if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
-      setVoiceStatus("This browser does not support secure microphone sessions. Try a recent browser over HTTPS.");
+    if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+      setVoiceStatus("Your browser does not support spoken tutor replies. You can still use the text tutor.");
+      return;
+    }
+    if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) {
+      setVoiceStatus("Speech-to-text is not available in this browser. Try the latest Microsoft Edge or Chrome.");
       return;
     }
 
-    voiceStartButton.disabled = true;
-    setVoiceStatus("Requesting a secure speaking session…");
-    try {
-      const { data, error } = await supabase.functions.invoke("realtime-token", {
-        body: { track: mode === "cambridge" ? "cambridge" : mode, level: level.value }
-      });
-      if (error) throw new Error(await showFunctionError(error));
-      if (!data?.value) throw new Error(data?.message || "A voice session could not be created.");
-
-      voiceStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-      });
-      voicePeer = new RTCPeerConnection();
-      voiceAudio = new Audio();
-      voiceAudio.autoplay = true;
-      voiceAudio.playsInline = true;
-      voicePeer.ontrack = async event => {
-        if (event.streams?.[0]) {
-          voiceAudio.srcObject = event.streams[0];
-          try { await voiceAudio.play(); } catch (_) {
-            setVoiceStatus("Allow audio playback in your browser to hear the tutor.", true);
-          }
-        }
-      };
-
-      voiceStream.getTracks().forEach(track => voicePeer.addTrack(track, voiceStream));
-      voiceChannel = voicePeer.createDataChannel("oai-events");
-      voiceChannel.onmessage = event => {
-        let payload;
-        try { payload = JSON.parse(event.data); } catch (_) { return; }
-        if (payload.type === "conversation.item.input_audio_transcription.completed" && payload.transcript) {
-          addMessage("learner", "YOU SAID", payload.transcript);
-        }
-        if (payload.type === "response.output_audio_transcript.done" && payload.transcript) {
-          addMessage("coach", "TEACHER SARA AI · VOICE", payload.transcript);
-        }
-        if (payload.type === "session.closed") {
-          if (voiceCloseResolver) voiceCloseResolver();
-          return;
-        }
-        if (payload.type === "error") {
-          setVoiceStatus("Voice service reported a problem. End this session and try again.", false);
-        }
-      };
-
-      const offer = await voicePeer.createOffer();
-      await voicePeer.setLocalDescription(offer);
-      const answerResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
-        method: "POST",
-        headers: {
-          "Authorization": "Bearer " + data.value,
-          "Content-Type": "application/sdp"
-        },
-        body: offer.sdp
-      });
-      if (!answerResponse.ok) {
-        const detail = await answerResponse.text();
-        throw new Error("The voice connection could not be completed (" + answerResponse.status + ").");
-      }
-      await voicePeer.setRemoteDescription({ type: "answer", sdp: await answerResponse.text() });
-
-      voiceStartButton.hidden = true;
-      voiceStopButton.hidden = false;
-      const maxSessionSeconds = Math.max(30, Math.min(180, Number(data.maxSessionSeconds) || 180));
-      setVoiceStatus("You're connected. Speak naturally; press End session when finished. This test session ends automatically after 3 minutes. Your microphone is live.", true);
-      voicePeer.onconnectionstatechange = () => {
-        if (!voicePeer) return;
-        if (["failed", "closed"].includes(voicePeer.connectionState)) {
-          void stopVoiceSession("The voice connection ended. Your microphone has been disconnected.");
-        }
-      };
-      if (voiceChannel.readyState === "open") {
-        voiceChannel.send(JSON.stringify({
-          type: "response.create",
-          response: { instructions: "Start with a short, friendly greeting and ask one opening question for this learner's selected practice track. Keep your spoken response brief." }
-        }));
-      } else {
-        voiceChannel.addEventListener("open", () => {
-          voiceChannel?.send(JSON.stringify({
-            type: "response.create",
-            response: { instructions: "Start with a short, friendly greeting and ask one opening question for this learner's selected practice track. Keep your spoken response brief." }
-          }));
-        }, { once: true });
-      }
-      voiceLimitTimer = window.setTimeout(() => stopVoiceSession("This voice test has reached its 3-minute limit."), maxSessionSeconds * 1000);
-    } catch (error) {
-      await stopVoiceSession();
-      setVoiceStatus(error.message || "Unable to start the voice session. No further charge has been taken.");
-    } finally {
-      voiceStartButton.disabled = false;
-    }
+    browserVoiceActive = true;
+    browserVoiceWaiting = false;
+    voiceStartButton.hidden = true;
+    voiceStopButton.hidden = false;
+    setVoiceStatus("Starting free browser voice… allow microphone access when your browser asks.", false);
+    startBrowserRecognition();
+    if (voiceLimitTimer) window.clearTimeout(voiceLimitTimer);
+    voiceLimitTimer = window.setTimeout(
+      () => stopVoiceSession("This free browser voice test has reached its 3-minute limit."),
+      3 * 60 * 1000
+    );
   }
 
-  async function stopVoiceSession(message = "Voice session ended. Your microphone has been disconnected.") {
-    if (voiceClosing) return;
-    voiceClosing = true;
+  async function stopVoiceSession(message = "Voice practice ended. Your microphone is no longer listening.") {
+    browserVoiceActive = false;
+    browserVoiceWaiting = false;
     if (voiceLimitTimer) {
       window.clearTimeout(voiceLimitTimer);
       voiceLimitTimer = null;
     }
-    const channel = voiceChannel;
-    if (channel && channel.readyState === "open") {
-      setVoiceStatus("Closing the voice session safely…");
-      await new Promise(resolve => {
-        voiceCloseResolver = resolve;
-        voiceCloseTimer = window.setTimeout(resolve, 12000);
-        try {
-          // Ask the Realtime service to close and emit its final usage event before disconnecting.
-          channel.send(JSON.stringify({ type: "session.close" }));
-        } catch (_) {
-          resolve();
-        }
-      });
-    }
-    if (voiceCloseTimer) {
-      window.clearTimeout(voiceCloseTimer);
-      voiceCloseTimer = null;
-    }
-    voiceCloseResolver = null;
-    try { channel?.close(); } catch (_) {}
-    try { voicePeer?.close(); } catch (_) {}
-    voiceStream?.getTracks().forEach(track => track.stop());
-    if (voiceAudio) {
-      voiceAudio.pause();
-      voiceAudio.srcObject = null;
-    }
-    voiceChannel = null;
-    voicePeer = null;
-    voiceStream = null;
-    voiceAudio = null;
-    if (voiceStartButton) voiceStartButton.hidden = !realtimeVoiceEnabled;
+    const recognition = browserRecognition;
+    browserRecognition = null;
+    try { recognition?.abort(); } catch (_) {}
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    if (voiceStartButton) voiceStartButton.hidden = false;
     if (voiceStopButton) voiceStopButton.hidden = true;
-    voiceClosing = false;
-    if (message) setVoiceStatus(message);
-    if (supabase && session) await refreshAccountStatus();
+    if (message) setVoiceStatus(message, false);
   }
 
   async function openBillingPortal() {
