@@ -390,25 +390,25 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
         usageFill.style.width = Math.min(100, limit > 0 ? (used / limit) * 100 : 0) + "%";
         const plan = statusData.paid ? "Paid subscription" : "Free access";
         planLabel.textContent = plan;
-        realtimeVoiceEnabled = statusData.voiceEnabled === true && statusData.paid === true;
+        realtimeVoiceEnabled = statusData.voiceEnabled === true;
         if (voiceControls) voiceControls.hidden = !realtimeVoiceEnabled || mode === "young";
         if (!realtimeVoiceEnabled) {
           voiceStartButton.hidden = true;
           voiceStopButton.hidden = true;
-          setVoiceStatus("Live voice practice is available on eligible paid plans once enabled.");
+          setVoiceStatus("Live voice practice is temporarily unavailable.");
         } else if (!voicePeer) {
           voiceStartButton.hidden = false;
           voiceStopButton.hidden = true;
           const voiceUsed = Number(statusData.voiceUsage?.used ?? 0);
           const voiceLimit = Number(statusData.voiceUsage?.limit ?? 12);
-          setVoiceStatus("Voice practice ready · " + voiceUsed + " of " + voiceLimit + " monthly sessions used. Start only somewhere private.");
+          setVoiceStatus("Free voice testing ready · " + voiceUsed + " of " + voiceLimit + " monthly sessions used. Each session is limited to 3 minutes. Start somewhere private.");
         }
         const hasBillingCustomer = statusData.hasBillingCustomer === true;
         paidPlanConfigured = statusData.checkoutConfigured === true && !statusData.paid && !hasBillingCustomer;
         upgradeButton.hidden = !paidPlanConfigured;
         manageBillingButton.hidden = !hasBillingCustomer;
         if (!statusData.aiConfigured) {
-          setBillingMessage("Your account is connected, but the live AI tutor is waiting for its secure server key. The sample lesson still works; no payment can be taken.");
+          setBillingMessage("Your account is signed in, but Supabase cannot find OPENAI_API_KEY in its Function Secrets. Add that exact secret name in Supabase → Edge Function Secrets. OPENAI_MODEL is optional; Teacher Sara defaults to gpt-6.1-terra. Never paste the key into this chat.");
         } else if (statusData.subscription?.status === "past_due") {
           setBillingMessage("Your last payment needs attention. Open Manage billing to update your payment method or review the subscription.");
         } else if (statusData.paid) {
@@ -604,7 +604,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 
       voiceStartButton.hidden = true;
       voiceStopButton.hidden = false;
-      setVoiceStatus("You're connected. Speak naturally; press End session when finished. This session ends automatically after 8 minutes. Your microphone is live.", true);
+      const maxSessionSeconds = Math.max(30, Math.min(180, Number(data.maxSessionSeconds) || 180));
+      setVoiceStatus("You're connected. Speak naturally; press End session when finished. This test session ends automatically after 3 minutes. Your microphone is live.", true);
       voicePeer.onconnectionstatechange = () => {
         if (!voicePeer) return;
         if (["failed", "closed"].includes(voicePeer.connectionState)) {
@@ -624,7 +625,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
           }));
         }, { once: true });
       }
-      voiceLimitTimer = window.setTimeout(() => stopVoiceSession("This voice session has reached its 8-minute limit."), 8 * 60 * 1000);
+      voiceLimitTimer = window.setTimeout(() => stopVoiceSession("This voice test has reached its 3-minute limit."), maxSessionSeconds * 1000);
     } catch (error) {
       await stopVoiceSession();
       setVoiceStatus(error.message || "Unable to start the voice session. No further charge has been taken.");
