@@ -73,15 +73,19 @@ const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request,
       const active = !!subscription && ["active", "trialing"].includes(subscription.status) &&
         (!subscription.current_period_end || new Date(subscription.current_period_end).getTime() > Date.now());
       const limit = Number(Deno.env.get(active ? "AI_PAID_MONTHLY_REQUEST_LIMIT" : "AI_FREE_MONTHLY_REQUEST_LIMIT") ?? (active ? "500" : "10"));
-      const voiceEnabled = active && Deno.env.get("ENABLE_REALTIME_VOICE") === "true";
-      const voiceLimit = Number(Deno.env.get("AI_VOICE_MONTHLY_SESSION_LIMIT") ?? "12");
+      // Voice is available to every authenticated adult pilot account unless explicitly disabled.
+      // It is not tied to a paid subscription. Monthly usage limits still control API spend.
+      const voiceEnabled = Deno.env.get("ENABLE_REALTIME_VOICE") !== "false";
+      const voiceLimit = Number(Deno.env.get("AI_VOICE_MONTHLY_SESSION_LIMIT") ?? "10");
       return json({
         authenticated: true,
         email: userEmail ?? null,
         subscription: subscription ?? null,
         paid: active,
         hasBillingCustomer: Boolean(billingCustomer?.stripe_customer_id),
-        aiConfigured: Boolean(Deno.env.get("OPENAI_API_KEY") && Deno.env.get("OPENAI_MODEL")),
+        aiConfigured: Boolean(Deno.env.get("OPENAI_API_KEY")),
+        aiModel: Deno.env.get("OPENAI_MODEL") ?? "gpt-6.1-terra",
+        voiceModel: Deno.env.get("OPENAI_REALTIME_MODEL") ?? "gpt-realtime-2.1-mini",
         usage: { used: usage?.request_count ?? 0, limit },
         voiceEnabled,
         voiceUsage: { used: voiceUsage?.session_count ?? 0, limit: voiceLimit },
