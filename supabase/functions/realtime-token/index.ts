@@ -51,7 +51,7 @@ function voiceInstructions(track: string, level: string) {
 const authenticatedHandler = withSupabase({ auth: "user" }, async (req: Request, ctx: any) => {
     if (!originAllowed(req)) return json({ error: "origin_not_allowed" }, 403);
     if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
-    const userId = ctx.userClaims?.sub;
+    const userId = ctx.userClaims?.id;
     if (!userId) return json({ error: "unauthorized" }, 401);
 
     if (Deno.env.get("ENABLE_REALTIME_VOICE") !== "true") {
