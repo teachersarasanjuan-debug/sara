@@ -403,7 +403,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
           voiceStartButton.hidden = true;
           voiceStopButton.hidden = true;
           setVoiceStatus("Live voice practice is temporarily unavailable.");
-        } else if (!voicePeer) {
+        } else if (!browserVoiceActive) {
           voiceStartButton.hidden = false;
           voiceStopButton.hidden = true;
           const repliesUsed = Number(statusData.usage?.used ?? 0);
@@ -557,7 +557,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
     utterance.onerror = () => {
       if (!browserVoiceActive) return;
       browserVoiceWaiting = false;
-      setVoiceStatus("The browser could not play the tutor's voice. Restart listening or read the answer on screen.", false);
+      setVoiceStatus("The browser could not play the tutor's voice. Continuing with microphone practice.", false);
+      startBrowserRecognition();
     };
     window.speechSynthesis.speak(utterance);
   }
