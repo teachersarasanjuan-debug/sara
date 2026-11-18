@@ -4,25 +4,52 @@ const PHOTO=SITE+"/assets/teacher-sara-photo.webp";
 const LOGO=SITE+"/assets/teacher-sara-logo.webp";
 
 const toggle=document.querySelector('.menu-toggle'),nav=document.querySelector('#site-nav');
+const declaredLanguage=(document.documentElement.lang||'es-ES').trim().toLowerCase();
+const isEnglishPage=declaredLanguage.startsWith('en');
 if(nav){
   const wanted=[
-    ['online.html','Clases online'],
-    ['ingles-profesionales-empresas.html','Profesionales']
+    ['online.html',isEnglishPage?'Online lessons':'Clases online'],
+    ['ingles-profesionales-empresas.html',isEnglishPage?'Spanish version':'Profesionales']
   ];
+  const localPath=href=>{
+    try{return new URL(href,location.href).pathname.replace(/\/+$/,'')||'/';}
+    catch(_){return '';}
+  };
   wanted.forEach(([href,label])=>{
-    if(!nav.querySelector('a[href="'+href+'"]')){
-      const a=document.createElement('a');a.href=href;a.textContent=label;
-      const guide=nav.querySelector('a[href="guides.html"]');
+    const targetPath='/'+href.replace(/^\/+/,'');
+    const exists=Array.from(nav.querySelectorAll('a[href]')).some(a=>localPath(a.getAttribute('href'))===targetPath);
+    if(!exists){
+      const a=document.createElement('a');a.href=targetPath;a.textContent=label;
+      const guide=Array.from(nav.querySelectorAll('a[href]')).find(a=>localPath(a.getAttribute('href'))==='/guides.html');
       if(guide) nav.insertBefore(a,guide); else nav.appendChild(a);
     }
   });
 }
-if(toggle&&nav){toggle.addEventListener('click',()=>{const open=nav.classList.toggle('open');toggle.setAttribute('aria-expanded',open?'true':'false')});nav.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>nav.classList.remove('open')))}
+if(toggle&&nav){
+  toggle.addEventListener('click',()=>{
+    const open=nav.classList.toggle('open');
+    toggle.setAttribute('aria-expanded',open?'true':'false');
+  });
+  nav.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{
+    nav.classList.remove('open');
+    toggle.setAttribute('aria-expanded','false');
+  }));
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&nav.classList.contains('open')){
+      nav.classList.remove('open');
+      toggle.setAttribute('aria-expanded','false');
+      toggle.focus();
+    }
+  });
+}
 
 function meta(name,content,attr='name'){
   let el=document.head.querySelector('meta['+attr+'="'+name+'"]');
   if(!el){el=document.createElement('meta');el.setAttribute(attr,name);document.head.appendChild(el)}
   el.setAttribute('content',content);
+}
+function metaIfMissing(name,content,attr='name'){
+  if(!document.head.querySelector('meta['+attr+'="'+name+'"]')) meta(name,content,attr);
 }
 function link(rel,href,extra){
   let el=document.head.querySelector('link[rel="'+rel+'"][href="'+href+'"]');
@@ -67,40 +94,62 @@ function replaceTextTypos(){
 }
 function seo(){
   const key=currentKey();
-  document.documentElement.lang='es-ES';
+  const pageLang=(document.documentElement.lang||'es-ES').trim();
+  const isEnglish=/^en(?:[-_]|$)/i.test(pageLang);
+  if(!document.documentElement.lang) document.documentElement.lang='es-ES';
+
+  // A custom 404 must remain non-indexable and must never advertise another URL as canonical.
+  if(key==='404.html'){
+    meta('robots','noindex,follow');
+    const strayCanonical=document.head.querySelector('link[rel="canonical"]');
+    if(strayCanonical) strayCanonical.remove();
+    return;
+  }
+
   meta('author','Teacher Sara');
   meta('theme-color','#176b57');
-  meta('robots',key==='privacy.html'?'noindex,follow':'index,follow,max-image-preview:large');
+  if(key==='privacy.html') meta('robots','noindex,follow');
+  else if(!document.head.querySelector('meta[name="robots"]')) meta('robots','index,follow,max-image-preview:large');
+
+  const desc=(document.querySelector('meta[name="description"]')||{}).content||'Clases de inglés para niños y adolescentes en San Juan de Alicante y Mutxamel.';
+  const title=document.title;
+  const imageAlt=isEnglish?'Teacher Sara, British English teacher':'Teacher Sara, profesora británica de inglés';
+
   link('preconnect','https://fonts.googleapis.com');
   link('preconnect','https://fonts.gstatic.com',{crossOrigin:'anonymous'});
   if(!document.head.querySelector('link[data-teacher-fonts]')){
     const f=document.createElement('link');f.rel='stylesheet';f.href='https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap';f.dataset.teacherFonts='';document.head.appendChild(f);
   }
   meta('og:type',key.startsWith('guide:')?'article':'website','property');
-  meta('og:locale','es_ES','property');
-  meta('og:site_name','Teacher Sara','property');
-  meta('og:image',PHOTO,'property');
-  meta('og:image:alt','Teacher Sara, profesora británica de inglés','property');
-  meta('twitter:card','summary_large_image');
-  meta('twitter:title',document.title);
-  meta('twitter:description',(document.querySelector('meta[name="description"]')||{}).content||'Clases de inglés con Teacher Sara');
-  meta('twitter:image',PHOTO);
-  meta('twitter:image:alt','Teacher Sara, profesora británica de inglés');
+  meta('og:locale',isEnglish?'en_GB':'es_ES','property');
+  metaIfMissing('og:site_name','Teacher Sara','property');
+  metaIfMissing('og:image',PHOTO,'property');
+  metaIfMissing('og:image:alt',imageAlt,'property');
+  metaIfMissing('twitter:card','summary_large_image');
+  metaIfMissing('twitter:title',title);
+  metaIfMissing('twitter:description',desc);
+  metaIfMissing('twitter:image',PHOTO);
+  metaIfMissing('twitter:image:alt',imageAlt);
 
-  const desc=(document.querySelector('meta[name="description"]')||{}).content||'Clases de inglés para niños y adolescentes en San Juan de Alicante y Mutxamel.';
-  const title=document.title;
-  let canonical=document.querySelector('link[rel="canonical"]');
-  if(!canonical){canonical=document.createElement('link');canonical.rel='canonical';document.head.appendChild(canonical)}
+  const setCanonical=href=>{
+    let el=document.head.querySelector('link[rel="canonical"]');
+    if(!el){el=document.createElement('link');el.rel='canonical';document.head.appendChild(el)}
+    el.href=href;
+  };
   const guideMap={
     'clases-ingles-ninos-san-juan-alicante.html':['Clases de inglés para niños en San Juan de Alicante',SITE+'/guia/clases-ingles-ninos-san-juan-alicante.html'],
     'apoyo-escolar-ingles-ninos.html':['Apoyo escolar de inglés para niños',SITE+'/guia/apoyo-escolar-ingles-ninos.html'],
     'ingles-6-8-anos.html':['Inglés para niños de 6 a 8 años',SITE+'/guia/ingles-6-8-anos.html'],
     'cambridge-ingles-adolescentes-alicante.html':['Cambridge English para adolescentes',SITE+'/guia/cambridge-ingles-adolescentes-alicante.html'],
-    'clases-ingles-mutxamel-ninos.html':['Clases de inglés para niños de Mutxamel',SITE+'/guia/clases-ingles-mutxamel-ninos.html']
+    'clases-ingles-mutxamel-ninos.html':['Clases de inglés para niños de Mutxamel',SITE+'/guia/clases-ingles-mutxamel-ninos.html'],
+    'apoyo-escolar-ingles-online.html':['Apoyo escolar de inglés online para niños',SITE+'/guia/apoyo-escolar-ingles-online.html'],
+    'cambridge-ingles-online-adolescentes.html':['Preparación Cambridge online para adolescentes',SITE+'/guia/cambridge-ingles-online-adolescentes.html'],
+    'como-elegir-clases-ingles-online-ninos.html':['Cómo elegir clases de inglés online para niños',SITE+'/guia/como-elegir-clases-ingles-online-ninos.html'],
+    'ingles-empresas-formacion-online.html':['Formación de inglés para empresas online',SITE+'/guia/ingles-empresas-formacion-online.html']
   };
 
   if(key==='index.html'){
-    canonical.href=SITE+'/';
+    setCanonical(SITE+'/');
     jsonLd({"@context":"https://schema.org","@graph":[
       {"@type":"WebSite","@id":SITE+"/#website","url":SITE+"/","name":"Teacher Sara","inLanguage":"es-ES","publisher":{"@id":SITE+"/#business"}},
       {"@type":"WebPage","@id":SITE+"/#webpage","url":SITE+"/","name":title,"description":desc,"inLanguage":"es-ES","isPartOf":{"@id":SITE+"/#website"},"about":{"@id":SITE+"/#business"}},
@@ -112,9 +161,9 @@ function seo(){
 
   if(key.startsWith('guide:')){
     const info=guideMap[key.slice(6)];
-    if(!info) return;
+    if(!info){setCanonical(SITE+location.pathname);return;}
     const url=info[1],name=info[0];
-    canonical.href=url;
+    setCanonical(url);
     jsonLd({"@context":"https://schema.org","@graph":[
       {"@type":"Article","headline":title,"description":desc,"mainEntityOfPage":{"@type":"WebPage","@id":url},"author":{"@id":SITE+"/#sara"},"publisher":{"@id":SITE+"/#business"},"image":PHOTO,"datePublished":"2026-09-29","dateModified":"2026-09-29","inLanguage":"es-ES"},
       {"@type":"WebPage","@id":url+"#webpage","url":url,"name":title,"description":desc,"inLanguage":"es-ES","isPartOf":{"@id":SITE+"/#website"},"about":{"@id":SITE+"/#business"}},
@@ -133,19 +182,18 @@ function seo(){
     'guides.html':['Guía para familias',SITE+'/guides.html'],
     'online.html':['Clases online',SITE+'/online.html'],
     'clases-ingles-online-ninos.html':['Clases de inglés online para niños',SITE+'/clases-ingles-online-ninos.html'],
+    'clases-ingles-online-adolescentes.html':['Clases de inglés online para adolescentes',SITE+'/clases-ingles-online-adolescentes.html'],
     'ingles-profesionales-empresas.html':['Profesionales y empresas',SITE+'/ingles-profesionales-empresas.html'],
-    'online.html':['Clases online',SITE+'/online.html'],
-    'clases-ingles-online-ninos.html':['Clases de inglés online para niños',SITE+'/clases-ingles-online-ninos.html'],
-    'ingles-profesionales-empresas.html':['Profesionales y empresas',SITE+'/ingles-profesionales-empresas.html']
+    'business-english-online-spain.html':['Business English',SITE+'/business-english-online-spain.html']
   };
   if(key==='privacy.html'){
-    canonical.href=SITE+'/privacy.html';
+    setCanonical(SITE+'/privacy.html');
     jsonLd({"@context":"https://schema.org","@type":"WebPage","@id":SITE+"/privacy.html#webpage","url":SITE+"/privacy.html","name":title,"description":desc,"inLanguage":"es-ES","isPartOf":{"@id":SITE+"/#website"}});
     addVisibleBreadcrumb('Privacidad',false);
     return;
   }
   if(!cfg[key]) return;
-  canonical.href=cfg[key][1];
+  setCanonical(cfg[key][1]);
   addVisibleBreadcrumb(cfg[key][0],false);
   if(key==='about.html'){
     jsonLd({"@context":"https://schema.org","@graph":[
